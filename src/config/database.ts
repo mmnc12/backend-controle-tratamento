@@ -27,6 +27,21 @@ export const testConnection = async () => {
     }
 };
 
+// ============================================
+// Tipos para os resultados das queries
+// ============================================
+
+export type QueryResult<T = any> = T[];
+export type QueryResultWithInsertId = {
+    insertId: number;
+    affectedRows: number;
+    changedRows: number;
+};
+
+// ============================================
+// FUNÇÕES DE QUERY
+// ============================================
+
 export const query = async <T = any>(sql: string, values?: any[]): Promise<T[]> => {
     try {
         const [rows] = await pool.execute(sql, values);
@@ -44,6 +59,17 @@ export const queryOne = async <T = any>(sql: string, values?: any[]): Promise<T 
         return result.length > 0 ? result[0] : null;
     } catch (error) {
         console.error('Erro na query:', error);
+        throw error;
+    }
+};
+
+// Função para INSERT, UPDATE, DELETE - retorna o resultado da operação
+export const execute = async (sql: string, values?: any[]): Promise<QueryResultWithInsertId> => {
+    try {
+        const [result] = await pool.execute(sql, values);
+        return result as QueryResultWithInsertId;
+    } catch (error) {
+        console.error('Erro na execução:', error);
         throw error;
     }
 };

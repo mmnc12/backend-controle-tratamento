@@ -10,6 +10,7 @@ import { testConnection } from './config/database';
 
 // IMPORTAR ROTAS
 import authRoutes from './routes/authRoutes';
+import localidadeRoutes from './routes/localidadeRoutes'; // <-- NOVO
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -48,6 +49,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 // ROTAS DA API
 // ============================================
 app.use('/api/auth', authRoutes);
+app.use('/api/localidades', localidadeRoutes); // <-- NOVO
 
 // ============================================
 // MIDDLEWARE DE ERRO 404
