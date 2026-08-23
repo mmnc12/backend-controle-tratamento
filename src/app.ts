@@ -10,18 +10,14 @@ import { testConnection } from './config/database';
 import authRoutes from './routes/authRoutes';
 import localidadeRoutes from './routes/localidadeRoutes';
 import psfRoutes from './routes/psfRoutes';
+import redeBasicaRoutes from './routes/redeBasicaRoutes'; // <-- NOVO
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
-// ============================================
-// MIDDLEWARES - ORDEM IMPORTANTE!
-// ============================================
-
-// 1. Helmet (segurança)
+// Middlewares
 app.use(helmet());
 
-// 2. Rate Limiting
 const limiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
     max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
@@ -31,19 +27,15 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// 3. CORS
 app.use(cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     credentials: true
 }));
 
-// 4. JSON Parser - IMPORTANTE: deve vir ANTES das rotas
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ============================================
-// ROTA DE TESTE
-// ============================================
+// Rota de teste
 app.get('/api/health', (_req: Request, res: Response) => {
     res.json({
         status: 'OK',
@@ -53,21 +45,13 @@ app.get('/api/health', (_req: Request, res: Response) => {
     });
 });
 
-// Rota de teste para verificar o parser
-app.post('/api/test-body', (req: Request, res: Response) => {
-    console.log('📝 Body na rota test:', req.body);
-    res.json({
-        received: req.body,
-        headers: req.headers['content-type']
-    });
-});
-
 // ============================================
 // ROTAS DA API
 // ============================================
 app.use('/api/auth', authRoutes);
 app.use('/api/localidades', localidadeRoutes);
 app.use('/api/psf', psfRoutes);
+app.use('/api/rede-basica', redeBasicaRoutes); // <-- NOVO
 
 // ============================================
 // MIDDLEWARE DE ERRO 404
