@@ -4,7 +4,7 @@ import { query, queryOne, execute } from '../config/database';
 // ============================================
 // LISTAR TODAS AS LOCALIDADES
 // ============================================
-export const listar = async (res: Response) => {
+export const listar = async (_req: Request, res: Response) => {
     try {
         const localidades = await query<any>(
             'SELECT * FROM localidades ORDER BY nome'
@@ -63,7 +63,6 @@ export const criar = async (req: Request, res: Response) => {
     try {
         const { codigo, nome, descricao } = req.body;
         
-        // Validar campos obrigatórios
         if (!codigo || !nome) {
             return res.status(400).json({
                 error: 'Campos obrigatórios',
@@ -71,7 +70,6 @@ export const criar = async (req: Request, res: Response) => {
             });
         }
         
-        // Verificar se código já existe
         const existe = await queryOne<any>(
             'SELECT * FROM localidades WHERE codigo = ?',
             [codigo]
@@ -84,13 +82,11 @@ export const criar = async (req: Request, res: Response) => {
             });
         }
         
-        // Inserir usando a função execute
         const result = await execute(
             'INSERT INTO localidades (codigo, nome, descricao) VALUES (?, ?, ?)',
             [codigo, nome, descricao || null]
         );
         
-        // Buscar a localidade criada
         const novaLocalidade = await queryOne<any>(
             'SELECT * FROM localidades WHERE id = ?',
             [result.insertId]
@@ -118,7 +114,6 @@ export const atualizar = async (req: Request, res: Response) => {
         const { id } = req.params;
         const { codigo, nome, descricao } = req.body;
         
-        // Verificar se existe
         const existe = await queryOne<any>(
             'SELECT * FROM localidades WHERE id = ?',
             [id]
@@ -131,7 +126,6 @@ export const atualizar = async (req: Request, res: Response) => {
             });
         }
         
-        // Verificar se código já existe (para outro registro)
         if (codigo) {
             const codigoExiste = await queryOne<any>(
                 'SELECT * FROM localidades WHERE codigo = ? AND id != ?',
@@ -146,13 +140,11 @@ export const atualizar = async (req: Request, res: Response) => {
             }
         }
         
-        // Atualizar usando a função execute
         await execute(
             'UPDATE localidades SET codigo = ?, nome = ?, descricao = ? WHERE id = ?',
             [codigo, nome, descricao || null, id]
         );
         
-        // Buscar a localidade atualizada
         const localidadeAtualizada = await queryOne<any>(
             'SELECT * FROM localidades WHERE id = ?',
             [id]
@@ -179,7 +171,6 @@ export const deletar = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         
-        // Verificar se existe
         const existe = await queryOne<any>(
             'SELECT * FROM localidades WHERE id = ?',
             [id]
@@ -192,7 +183,6 @@ export const deletar = async (req: Request, res: Response) => {
             });
         }
         
-        // Verificar se está sendo usada em rede_basica
         const emUsoRede = await queryOne<any>(
             'SELECT * FROM rede_basica WHERE localidade_id = ? LIMIT 1',
             [id]
@@ -205,7 +195,6 @@ export const deletar = async (req: Request, res: Response) => {
             });
         }
         
-        // Verificar se está sendo usada em rotina
         const emUsoRotina = await queryOne<any>(
             'SELECT * FROM rotina WHERE localidade_id = ? LIMIT 1',
             [id]
@@ -218,7 +207,6 @@ export const deletar = async (req: Request, res: Response) => {
             });
         }
         
-        // Deletar usando a função execute
         await execute(
             'DELETE FROM localidades WHERE id = ?',
             [id]
