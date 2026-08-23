@@ -10,7 +10,8 @@ import { testConnection } from './config/database';
 import authRoutes from './routes/authRoutes';
 import localidadeRoutes from './routes/localidadeRoutes';
 import psfRoutes from './routes/psfRoutes';
-import redeBasicaRoutes from './routes/redeBasicaRoutes'; // <-- NOVO
+import redeBasicaRoutes from './routes/redeBasicaRoutes';
+import rotinaRoutes from './routes/rotinaRoutes'; // <-- NOVO
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -51,7 +52,8 @@ app.get('/api/health', (_req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/localidades', localidadeRoutes);
 app.use('/api/psf', psfRoutes);
-app.use('/api/rede-basica', redeBasicaRoutes); // <-- NOVO
+app.use('/api/rede-basica', redeBasicaRoutes);
+app.use('/api/rotina', rotinaRoutes); // <-- NOVO
 
 // ============================================
 // MIDDLEWARE DE ERRO 404
