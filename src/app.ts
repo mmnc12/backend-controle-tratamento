@@ -11,7 +11,9 @@ import authRoutes from './routes/authRoutes';
 import localidadeRoutes from './routes/localidadeRoutes';
 import psfRoutes from './routes/psfRoutes';
 import redeBasicaRoutes from './routes/redeBasicaRoutes';
-import rotinaRoutes from './routes/rotinaRoutes'; // <-- NOVO
+import rotinaRoutes from './routes/rotinaRoutes';
+import relatorioRoutes from './routes/relatorioRoutes';
+ 
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -53,7 +55,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/localidades', localidadeRoutes);
 app.use('/api/psf', psfRoutes);
 app.use('/api/rede-basica', redeBasicaRoutes);
-app.use('/api/rotina', rotinaRoutes); // <-- NOVO
+app.use('/api/rotina', rotinaRoutes); 
+app.use('/api/relatorios', relatorioRoutes);
 
 // ============================================
 // MIDDLEWARE DE ERRO 404
