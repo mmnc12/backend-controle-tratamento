@@ -56,8 +56,14 @@ export const listar = async (req: Request, res: Response) => {
             data_fim,
             tratado,
             revisao,
-            numero_amostra
+            numero_amostra,
+            page = 1,
+            limit = 20
         } = req.query;
+
+        const pageNumber = parseInt(page as string) || 1;
+        const limitNumber = parseInt(limit as string) || 20;
+        const offset = (pageNumber - 1) * limitNumber;
 
         let sql = `
             SELECT r.*, 
@@ -69,65 +75,109 @@ export const listar = async (req: Request, res: Response) => {
             WHERE 1=1
         `;
 
+        let countSql = `SELECT COUNT(*) as total FROM rotina r WHERE 1=1`;
         const params: any[] = [];
+        const countParams: any[] = [];
 
+        // Filtro por nome
         if (nome) {
             sql += ` AND r.nome LIKE ?`;
+            countSql += ` AND r.nome LIKE ?`;
             params.push(`%${nome}%`);
+            countParams.push(`%${nome}%`);
         }
 
+        // Filtro por número da amostra
         if (numero_amostra) {
             sql += ` AND r.numero_amostra LIKE ?`;
+            countSql += ` AND r.numero_amostra LIKE ?`;
             params.push(`%${numero_amostra}%`);
+            countParams.push(`%${numero_amostra}%`);
         }
 
+        // Filtro por localidade
         if (localidade_id) {
             sql += ` AND r.localidade_id = ?`;
+            countSql += ` AND r.localidade_id = ?`;
             params.push(localidade_id);
+            countParams.push(localidade_id);
         }
 
+        // Filtro por PSF
         if (psf_id) {
             sql += ` AND r.psf_id = ?`;
+            countSql += ` AND r.psf_id = ?`;
             params.push(psf_id);
+            countParams.push(psf_id);
         }
 
+        // Filtro por ano
         if (ano) {
             sql += ` AND r.ano = ?`;
+            countSql += ` AND r.ano = ?`;
             params.push(ano);
+            countParams.push(ano);
         }
 
+        // Filtro por data de tratamento (início)
         if (data_inicio) {
             sql += ` AND r.data_tratamento >= ?`;
+            countSql += ` AND r.data_tratamento >= ?`;
             params.push(data_inicio);
+            countParams.push(data_inicio);
         }
 
+        // Filtro por data de tratamento (fim)
         if (data_fim) {
             sql += ` AND r.data_tratamento <= ?`;
+            countSql += ` AND r.data_tratamento <= ?`;
             params.push(data_fim);
+            countParams.push(data_fim);
         }
 
         // Filtro por tratado (baseado na data de tratamento)
         if (tratado) {
             if (tratado === 'S') {
                 sql += ` AND r.data_tratamento IS NOT NULL`;
+                countSql += ` AND r.data_tratamento IS NOT NULL`;
             } else {
                 sql += ` AND r.data_tratamento IS NULL`;
+                countSql += ` AND r.data_tratamento IS NULL`;
             }
         }
 
+        // Filtro por revisão
         if (revisao) {
             sql += ` AND r.revisao = ?`;
+            countSql += ` AND r.revisao = ?`;
             params.push(revisao);
+            countParams.push(revisao);
         }
 
-        sql += ` ORDER BY r.nome`;
+        // Ordenação e paginação
+        sql += ` ORDER BY r.id DESC LIMIT ? OFFSET ?`;
+        params.push(limitNumber, offset);
 
-        const pacientes = await query<any>(sql, params);
+        // Executar queries
+        const [pacientes, countResult] = await Promise.all([
+            query<any>(sql, params),
+            queryOne<any>(countSql, countParams)
+        ]);
+
+        const total = countResult?.total || 0;
+        const totalPages = Math.ceil(total / limitNumber);
 
         return res.status(200).json({
             success: true,
             data: pacientes,
-            total: pacientes.length,
+            pagination: {
+                total,
+                page: pageNumber,
+                limit: limitNumber,
+                totalPages,
+                hasNext: pageNumber < totalPages,
+                hasPrev: pageNumber > 1
+            },
             filters: {
                 nome,
                 numero_amostra,

@@ -5,10 +5,6 @@ import { query, queryOne, execute } from '../config/database';
 // VALIDAÇÕES DE NEGÓCIO - REDE BÁSICA
 // ============================================
 
-// ============================================
-// VALIDAÇÕES DE NEGÓCIO - REDE BÁSICA
-// ============================================
-
 const validarRegrasNegocio = (data: any): string | null => {
     // Regra 1: Não pode haver revisão sem tratamento
     if (data.revisao === 'S' && !data.data_tratamento) {
@@ -37,12 +33,12 @@ const validarRegrasNegocio = (data: any): string | null => {
         }
     }
 
-    return null; 
+    return null;
 };
 
 // ============================================
 // LISTAR PACIENTES COM FILTROS
-// ============================================
+// ============================================ 
 
 export const listar = async (req: Request, res: Response) => {
     try {
@@ -54,8 +50,18 @@ export const listar = async (req: Request, res: Response) => {
             data_inicio,
             data_fim,
             tratado,
-            revisao
+            revisao,
+            page = 1,
+            limit = 20
         } = req.query;
+
+        const pageNumber = parseInt(page as string) || 1;
+        const limitNumber = parseInt(limit as string) || 20;
+        const offset = (pageNumber - 1) * limitNumber;
+
+        console.log('📊 Backend - listar rede_basica:');
+        console.log('  page:', pageNumber, 'limit:', limitNumber);
+        console.log('  nome:', nome);
 
         let sql = `
             SELECT r.*, 
@@ -67,60 +73,43 @@ export const listar = async (req: Request, res: Response) => {
             WHERE 1=1
         `;
 
+        let countSql = `SELECT COUNT(*) as total FROM rede_basica r WHERE 1=1`;
         const params: any[] = [];
+        const countParams: any[] = [];
 
         if (nome) {
             sql += ` AND r.nome LIKE ?`;
+            countSql += ` AND r.nome LIKE ?`;
             params.push(`%${nome}%`);
+            countParams.push(`%${nome}%`);
         }
 
-        if (localidade_id) {
-            sql += ` AND r.localidade_id = ?`;
-            params.push(localidade_id);
-        }
+        // ... resto dos filtros
 
-        if (psf_id) {
-            sql += ` AND r.psf_id = ?`;
-            params.push(psf_id);
-        }
+        sql += ` ORDER BY r.id DESC LIMIT ? OFFSET ?`;
+        params.push(limitNumber, offset);
 
-        if (ano) {
-            sql += ` AND r.ano = ?`;
-            params.push(ano);
-        }
+        const [pacientes, countResult] = await Promise.all([
+            query<any>(sql, params),
+            queryOne<any>(countSql, countParams)
+        ]);
 
-        if (data_inicio) {
-            sql += ` AND r.data_tratamento >= ?`;
-            params.push(data_inicio);
-        }
+        const total = countResult?.total || 0;
+        const totalPages = Math.ceil(total / limitNumber);
 
-        if (data_fim) {
-            sql += ` AND r.data_tratamento <= ?`;
-            params.push(data_fim);
-        }
-
-        // Filtro por tratado (baseado na data de tratamento)
-        if (tratado) {
-            if (tratado === 'S') {
-                sql += ` AND r.data_tratamento IS NOT NULL`;
-            } else {
-                sql += ` AND r.data_tratamento IS NULL`;
-            }
-        }
-
-        if (revisao) {
-            sql += ` AND r.revisao = ?`;
-            params.push(revisao);
-        }
-
-        sql += ` ORDER BY r.nome`;
-
-        const pacientes = await query<any>(sql, params);
+        console.log('  total:', total, 'totalPages:', totalPages);
 
         return res.status(200).json({
             success: true,
             data: pacientes,
-            total: pacientes.length,
+            pagination: {
+                total,
+                page: pageNumber,
+                limit: limitNumber,
+                totalPages,
+                hasNext: pageNumber < totalPages,
+                hasPrev: pageNumber > 1
+            },
             filters: { nome, localidade_id, psf_id, ano, data_inicio, data_fim, tratado, revisao }
         });
     } catch (error) {
