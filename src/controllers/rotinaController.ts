@@ -6,27 +6,39 @@ import { query, queryOne, execute } from '../config/database';
 // ============================================
 
 const validarRegrasNegocio = (data: any): string | null => {
-  // Regra 1: Não pode haver revisão sem tratamento
-  if (data.revisao === 'S' && !data.data_tratamento) {
-    return 'Não é possível marcar revisão como feita sem uma data de tratamento';
-  }
+    // Regra 1: Não pode haver revisão sem tratamento
+    if (data.revisao === 'S' && !data.data_tratamento) {
+        return 'Não é possível marcar revisão como feita sem uma data de tratamento';
+    }
 
-  // Regra 2: Não pode haver tratamento sem entrega de medicamento
-  if (data.data_tratamento && data.entrega_medicamento !== 'S') {
-    return 'Não é possível registrar data de tratamento sem entrega de medicamento';
-  }
+    // Regra 2: Não pode haver tratamento sem entrega de medicamento
+    if (data.data_tratamento && data.entrega_medicamento !== 'S') {
+        return 'Não é possível registrar data de tratamento sem entrega de medicamento';
+    }
 
-  // Regra 3: Não pode haver tratamento sem entrega de documento
-  if (data.data_tratamento && data.entrega_documento !== 'S') {
-    return 'Não é possível registrar data de tratamento sem entrega de documento';
-  }
+    // Regra 3: Não pode haver tratamento sem entrega de documento
+    if (data.data_tratamento && data.entrega_documento !== 'S') {
+        return 'Não é possível registrar data de tratamento sem entrega de documento';
+    }
 
-  // Regra 4 (Rotina): Não pode haver tratamento sem entrega de resultado
-  if (data.data_tratamento && data.entrega_resultado !== 'S') {
-    return 'Não é possível registrar data de tratamento sem entrega de resultado';
-  }
+    // Regra 4: Não pode haver tratamento sem entrega de resultado
+    if (data.data_tratamento && data.entrega_resultado !== 'S') {
+        return 'Não é possível registrar data de tratamento sem entrega de resultado';
+    }
 
-  return null; // Sem erros
+    // Regra 5: Não pode haver data de tratamento no futuro
+    if (data.data_tratamento) {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const dataTratamento = new Date(data.data_tratamento);
+        dataTratamento.setHours(0, 0, 0, 0);
+
+        if (dataTratamento > hoje) {
+            return 'Não é possível registrar uma data de tratamento no futuro';
+        }
+    }
+
+    return null; // Sem erros
 };
 
 // ============================================
@@ -111,21 +123,21 @@ export const listar = async (req: Request, res: Response) => {
         sql += ` ORDER BY r.nome`;
 
         const pacientes = await query<any>(sql, params);
-        
+
         return res.status(200).json({
             success: true,
             data: pacientes,
             total: pacientes.length,
-            filters: { 
-                nome, 
+            filters: {
+                nome,
                 numero_amostra,
-                localidade_id, 
-                psf_id, 
-                ano, 
-                data_inicio, 
-                data_fim, 
-                tratado, 
-                revisao 
+                localidade_id,
+                psf_id,
+                ano,
+                data_inicio,
+                data_fim,
+                tratado,
+                revisao
             }
         });
     } catch (error) {
@@ -144,7 +156,7 @@ export const listar = async (req: Request, res: Response) => {
 export const buscarPorId = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        
+
         const paciente = await queryOne<any>(
             `SELECT r.*, 
                     l.nome as localidade_nome, 
@@ -155,14 +167,14 @@ export const buscarPorId = async (req: Request, res: Response) => {
              WHERE r.id = ?`,
             [id]
         );
-        
+
         if (!paciente) {
             return res.status(404).json({
                 error: 'Não encontrado',
                 message: 'Paciente não encontrado'
             });
         }
-        
+
         return res.status(200).json({
             success: true,
             data: paciente
@@ -232,40 +244,40 @@ export const criar = async (req: Request, res: Response) => {
             'SELECT * FROM psf WHERE id = ?',
             [psf_id]
         );
-        
+
         if (!psfExiste) {
             return res.status(400).json({
                 error: 'PSF inválido',
                 message: 'PSF não encontrado'
             });
         }
-        
+
         // Verificar se localidade existe
         const localidadeExiste = await queryOne<any>(
             'SELECT * FROM localidades WHERE id = ?',
             [localidade_id]
         );
-        
+
         if (!localidadeExiste) {
             return res.status(400).json({
                 error: 'Localidade inválida',
                 message: 'Localidade não encontrada'
             });
         }
-        
+
         // Verificar se número da amostra já existe no mesmo ano
         const amostraExiste = await queryOne<any>(
             'SELECT * FROM rotina WHERE ano = ? AND numero_amostra = ?',
             [ano, numero_amostra]
         );
-        
+
         if (amostraExiste) {
             return res.status(400).json({
                 error: 'Duplicado',
                 message: `Número de amostra ${numero_amostra} já cadastrado para o ano ${ano}`
             });
         }
-        
+
         // Calcular data_revisao (40 dias após data_tratamento)
         let data_revisao = null;
         if (data_tratamento) {
@@ -273,7 +285,7 @@ export const criar = async (req: Request, res: Response) => {
             data.setDate(data.getDate() + 40);
             data_revisao = data.toISOString().split('T')[0];
         }
-        
+
         // Inserir
         const result = await execute(
             `INSERT INTO rotina 
@@ -301,7 +313,7 @@ export const criar = async (req: Request, res: Response) => {
                 observacao || null
             ]
         );
-        
+
         // Buscar o paciente criado
         const novoPaciente = await queryOne<any>(
             `SELECT r.*, 
@@ -313,7 +325,7 @@ export const criar = async (req: Request, res: Response) => {
              WHERE r.id = ?`,
             [result.insertId]
         );
-        
+
         return res.status(201).json({
             success: true,
             message: 'Paciente cadastrado com sucesso',
@@ -352,13 +364,13 @@ export const atualizar = async (req: Request, res: Response) => {
             telefone,
             observacao
         } = req.body;
-        
+
         // Verificar se existe
         const existe = await queryOne<any>(
             'SELECT * FROM rotina WHERE id = ?',
             [id]
         );
-        
+
         if (!existe) {
             return res.status(404).json({
                 error: 'Não encontrado',
@@ -386,14 +398,14 @@ export const atualizar = async (req: Request, res: Response) => {
                 message: erroValidacao
             });
         }
-        
+
         // Verificar se PSF existe
         if (psf_id) {
             const psfExiste = await queryOne<any>(
                 'SELECT * FROM psf WHERE id = ?',
                 [psf_id]
             );
-            
+
             if (!psfExiste) {
                 return res.status(400).json({
                     error: 'PSF inválido',
@@ -401,14 +413,14 @@ export const atualizar = async (req: Request, res: Response) => {
                 });
             }
         }
-        
+
         // Verificar se localidade existe
         if (localidade_id) {
             const localidadeExiste = await queryOne<any>(
                 'SELECT * FROM localidades WHERE id = ?',
                 [localidade_id]
             );
-            
+
             if (!localidadeExiste) {
                 return res.status(400).json({
                     error: 'Localidade inválida',
@@ -416,14 +428,14 @@ export const atualizar = async (req: Request, res: Response) => {
                 });
             }
         }
-        
+
         // Verificar se número da amostra já existe no mesmo ano (para outro registro)
         if (numero_amostra && ano) {
             const amostraExiste = await queryOne<any>(
                 'SELECT * FROM rotina WHERE ano = ? AND numero_amostra = ? AND id != ?',
                 [ano, numero_amostra, id]
             );
-            
+
             if (amostraExiste) {
                 return res.status(400).json({
                     error: 'Duplicado',
@@ -431,7 +443,7 @@ export const atualizar = async (req: Request, res: Response) => {
                 });
             }
         }
-        
+
         // Calcular data_revisao (40 dias após data_tratamento)
         let data_revisao = null;
         if (data_tratamento) {
@@ -439,7 +451,7 @@ export const atualizar = async (req: Request, res: Response) => {
             data.setDate(data.getDate() + 40);
             data_revisao = data.toISOString().split('T')[0];
         }
-        
+
         // Atualizar
         await execute(
             `UPDATE rotina SET 
@@ -480,7 +492,7 @@ export const atualizar = async (req: Request, res: Response) => {
                 id
             ]
         );
-        
+
         // Buscar o paciente atualizado
         const pacienteAtualizado = await queryOne<any>(
             `SELECT r.*, 
@@ -492,7 +504,7 @@ export const atualizar = async (req: Request, res: Response) => {
              WHERE r.id = ?`,
             [id]
         );
-        
+
         return res.status(200).json({
             success: true,
             message: 'Paciente atualizado com sucesso',
@@ -514,26 +526,26 @@ export const atualizar = async (req: Request, res: Response) => {
 export const deletar = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        
+
         // Verificar se existe
         const existe = await queryOne<any>(
             'SELECT * FROM rotina WHERE id = ?',
             [id]
         );
-        
+
         if (!existe) {
             return res.status(404).json({
                 error: 'Não encontrado',
                 message: 'Paciente não encontrado'
             });
         }
-        
+
         // Deletar
         await execute(
             'DELETE FROM rotina WHERE id = ?',
             [id]
         );
-        
+
         return res.status(200).json({
             success: true,
             message: 'Paciente deletado com sucesso'
