@@ -7,20 +7,20 @@ dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
-// Usar IP diretamente
 const pool = new Pool({
-    host: process.env.PGHOST || process.env.DB_HOST || '54.94.90.106',
+    host: process.env.PGHOST || process.env.DB_HOST || 'db.efjxrsoglusjkeojyria.supabase.co',
     port: parseInt(process.env.PGPORT || process.env.DB_PORT || '5432'),
     user: process.env.PGUSER || process.env.DB_USER || 'postgres',
     password: process.env.PGPASSWORD || process.env.DB_PASSWORD || 'Alvorada@80',
     database: process.env.PGDATABASE || process.env.DB_NAME || 'postgres',
-    ssl: process.env.NODE_ENV === 'production' 
-        ? { rejectUnauthorized: false } 
-        : false,
+    ssl: {
+        rejectUnauthorized: false,
+        // 🔥 IMPORTANTE: Forçar SNI (Server Name Indication)
+        servername: 'db.efjxrsoglusjkeojyria.supabase.co'
+    },
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-    // ⚠️ family NÃO É SUPORTADO - REMOVIDO
+    connectionTimeoutMillis: 15000,
 });
 
 export const testConnection = async () => {
