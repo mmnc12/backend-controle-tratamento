@@ -11,7 +11,12 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME || 'controle_tratamento_p',
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    // ⬇️ NOVAS CONFIGURAÇÕES PARA RESOLVER O ERRO ENETUNREACH
+    connectTimeout: 10000,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 export const testConnection = async () => {
