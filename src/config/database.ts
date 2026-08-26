@@ -7,7 +7,7 @@ dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
-// Usar DATABASE_URL ou construir manualmente com fallback
+// 🔥 USAR O POOLER (AWS) EM VEZ DO DOMÍNIO PRINCIPAL
 const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:alvorada%4080@aws-0-sa-east-1.pooler.supabase.com:6543/postgres';
 
 const pool = new Pool({
@@ -18,8 +18,6 @@ const pool = new Pool({
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 15000,
-    // 🔥 IMPORTANTE: Forçar a resolução do hostname para IPv4
-    // Isso evita que o driver tente IPv6
 });
 
 export const testConnection = async () => {
