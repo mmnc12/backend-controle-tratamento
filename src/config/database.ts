@@ -12,7 +12,6 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    // ⬇️ NOVAS CONFIGURAÇÕES PARA RESOLVER O ERRO ENETUNREACH
     connectTimeout: 10000,
     ssl: {
         rejectUnauthorized: false
