@@ -59,10 +59,6 @@ export const listar = async (req: Request, res: Response) => {
         const limitNumber = parseInt(limit as string) || 20;
         const offset = (pageNumber - 1) * limitNumber;
 
-        console.log('📊 Backend - listar rede_basica:');
-        console.log('  page:', pageNumber, 'limit:', limitNumber);
-        console.log('  nome:', nome);
-
         let sql = `
             SELECT r.*, 
                     l.nome as localidade_nome, 
@@ -96,8 +92,6 @@ export const listar = async (req: Request, res: Response) => {
 
         const total = countResult?.total || 0;
         const totalPages = Math.ceil(total / limitNumber);
-
-        console.log('  total:', total, 'totalPages:', totalPages);
 
         return res.status(200).json({
             success: true,
