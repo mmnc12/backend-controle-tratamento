@@ -7,18 +7,20 @@ dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
+// Usar IP diretamente
 const pool = new Pool({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'postgres',
+    host: process.env.PGHOST || process.env.DB_HOST || '54.94.90.106',
+    port: parseInt(process.env.PGPORT || process.env.DB_PORT || '5432'),
+    user: process.env.PGUSER || process.env.DB_USER || 'postgres',
+    password: process.env.PGPASSWORD || process.env.DB_PASSWORD || 'Alvorada@80',
+    database: process.env.PGDATABASE || process.env.DB_NAME || 'postgres',
     ssl: process.env.NODE_ENV === 'production' 
         ? { rejectUnauthorized: false } 
         : false,
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
+    // ⚠️ family NÃO É SUPORTADO - REMOVIDO
 });
 
 export const testConnection = async () => {
@@ -33,6 +35,10 @@ export const testConnection = async () => {
         return false;
     }
 };
+
+// ============================================
+// FUNÇÕES DE QUERY
+// ============================================
 
 export const query = async <T = any>(sql: string, values?: any[]): Promise<T[]> => {
     try {
