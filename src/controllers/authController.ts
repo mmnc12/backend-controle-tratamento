@@ -53,7 +53,7 @@ export const login = async (req: Request, res: Response) => {
                 perfil: user.perfil
             },
             JWT_SECRET,
-            { expiresIn: JWT_EXPIRES_IN }
+            { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions
         );
 
         const usuarioResponse: UsuarioResponse = {
