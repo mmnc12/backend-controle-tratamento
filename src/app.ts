@@ -13,32 +13,41 @@ import psfRoutes from './routes/psfRoutes';
 import redeBasicaRoutes from './routes/redeBasicaRoutes';
 import rotinaRoutes from './routes/rotinaRoutes';
 import relatorioRoutes from './routes/relatorioRoutes';
- 
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
+// ============================================
+// MIDDLEWARES
+// ============================================
+
 app.use(helmet());
 
+// 🔥 RATE LIMIT - AUMENTADO PARA TESTES
 const limiter = rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 min
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '1000'), // 🔥 1000 REQUISIÇÕES
     message: {
         error: 'Muitas requisições, tente novamente mais tarde.'
     }
 });
 app.use(limiter);
 
+// 🔥 CORS - LIBERADO PARA TODAS AS ORIGENS (temporário para testes)
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-    credentials: true
+    origin: '*', // 🔥 PERMITIR TODAS AS ORIGENS
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rota de teste
+// ============================================
+// ROTA DE TESTE
+// ============================================
+
 app.get('/api/health', (_req: Request, res: Response) => {
     res.json({
         status: 'OK',
@@ -51,16 +60,18 @@ app.get('/api/health', (_req: Request, res: Response) => {
 // ============================================
 // ROTAS DA API
 // ============================================
+
 app.use('/api/auth', authRoutes);
 app.use('/api/localidades', localidadeRoutes);
 app.use('/api/psf', psfRoutes);
 app.use('/api/rede-basica', redeBasicaRoutes);
-app.use('/api/rotina', rotinaRoutes); 
+app.use('/api/rotina', rotinaRoutes);
 app.use('/api/relatorios', relatorioRoutes);
 
 // ============================================
 // MIDDLEWARE DE ERRO 404
 // ============================================
+
 app.use((_req: Request, res: Response) => {
     res.status(404).json({
         error: 'Rota não encontrada',
@@ -71,6 +82,7 @@ app.use((_req: Request, res: Response) => {
 // ============================================
 // MIDDLEWARE DE ERRO GLOBAL
 // ============================================
+
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     console.error('Erro:', err.message);
     res.status(err.status || 500).json({
@@ -82,6 +94,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 // ============================================
 // INICIAR SERVIDOR
 // ============================================
+
 app.listen(PORT, async () => {
     console.log(`
     ============================================
