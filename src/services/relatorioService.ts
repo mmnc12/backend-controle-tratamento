@@ -73,6 +73,8 @@ export const gerarExcelRedeBasica = async (pacientes: any[]): Promise<Buffer> =>
     return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 };
 
+// src/services/relatorioService.ts
+
 export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
     let PDFDocument;
     try {
@@ -83,11 +85,11 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
     return new Promise((resolve, reject) => {
         try {
-            // 🔥 PÁGINA DEITADA (PAISAGEM)
+            // 🔥 PÁGINA DEITADA
             const doc = new PDFDocument({
                 margin: 30,
                 size: 'A4',
-                layout: 'landscape'  // 🔥 DEITADA
+                layout: 'landscape'
             });
             const chunks: Buffer[] = [];
 
@@ -113,43 +115,45 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             };
 
             // ============================================
-            // CABEÇALHO COM LOGO (MENOR)
+            // CABEÇALHO COM LOGO (CENTRALIZADO)
             // ============================================
 
             const margin = 30;
             const pageWidth = doc.page.width;
+            const centerX = pageWidth / 2;
 
-            // 🔥 LOGO MENOR
+            // 🔥 LOGO - CENTRALIZADA
             let logoLoaded = false;
             const logoPath1 = path.join(__dirname, '..', 'assets', 'logo.png');
 
             if (fs.existsSync(logoPath1)) {
                 try {
-                    // 🔥 LOGO MENOR: width: 50 em vez de 70
-                    doc.image(logoPath1, margin, 15, { width: 50 });
+                    // 🔥 LOGO CENTRALIZADA
+                    const logoWidth = 60;
+                    const logoX = centerX - (logoWidth / 2);
+                    doc.image(logoPath1, logoX, 15, { width: logoWidth });
                     logoLoaded = true;
-                    console.log('✅ Logo carregada!');
+                    console.log('✅ Logo carregada e centralizada!');
                 } catch (err) {
                     console.log('⚠️ Erro ao carregar logo:', err);
                 }
             }
 
-            // Título - ajustado para ficar ao lado da logo
-            const titleY = logoLoaded ? 18 : 20;
-            const titleX = logoLoaded ? margin + 65 : margin;
+            // 🔥 TÍTULOS CENTRALIZADOS - COM MAIS ESPAÇO
+            const titleY = logoLoaded ? 85 : 30; // Mais espaço para os títulos
+
+            doc.fontSize(16)
+                .font('Helvetica-Bold')
+                .fillColor(cores.primariaEscura)
+                .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, titleY, { align: 'center' });
 
             doc.fontSize(14)
                 .font('Helvetica-Bold')
-                .fillColor(cores.primariaEscura)
-                .text('SECRETARIA MUNICIPAL DE SAÚDE', titleX, titleY, { align: 'left' });
-
-            doc.fontSize(12)
-                .font('Helvetica-Bold')
                 .fillColor(cores.primaria)
-                .text('SETOR DE ENDEMIAS', titleX, titleY + 18, { align: 'left' });
+                .text('SETOR DE ENDEMIAS', 0, titleY + 22, { align: 'center' });
 
-            // Linha separadora (mais fina)
-            const lineY = 55;
+            // 🔥 LINHA SEPARADORA (CENTRALIZADA)
+            const lineY = titleY + 50;
             doc.moveTo(margin, lineY)
                 .lineTo(pageWidth - margin, lineY)
                 .strokeColor(cores.primaria)
@@ -157,26 +161,26 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 .stroke();
 
             // ============================================
-            // TÍTULO DO RELATÓRIO
+            // TÍTULO DO RELATÓRIO (CENTRALIZADO)
             // ============================================
 
-            doc.moveDown(0.5);
-            doc.fontSize(16)
+            doc.moveDown(1.5);
+            doc.fontSize(18)
                 .font('Helvetica-Bold')
                 .fillColor(cores.texto)
                 .text('RELATÓRIO - REDE BÁSICA', { align: 'center' });
 
-            doc.moveDown(0.2);
+            doc.moveDown(0.5);
 
-            doc.fontSize(9)
+            doc.fontSize(10)
                 .font('Helvetica')
                 .fillColor(cores.textoClaro)
                 .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
 
-            doc.moveDown(0.5);
+            doc.moveDown(1);
 
             // ============================================
-            // TABELA COM TODAS AS COLUNAS (PAISAGEM)
+            // TABELA COM TODAS AS COLUNAS
             // ============================================
 
             if (!pacientes || pacientes.length === 0) {
@@ -209,7 +213,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
             colunas.forEach(col => col.width = col.width * tableWidth);
 
-            // Cabeçalho
+            // Cabeçalho da tabela
             const drawTableHeader = (yPos: number) => {
                 let x = startX;
 
@@ -232,7 +236,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 return yPos + 24;
             };
 
-            // Linhas
+            // Linhas da tabela
             const drawTableRow = (rowData: string[], yPos: number, isAlternate: boolean) => {
                 let x = startX;
 
@@ -257,10 +261,10 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 return yPos + 20;
             };
 
+            // Desenhar tabela
             y = drawTableHeader(y);
 
             pacientes.forEach((p, index) => {
-                // 🔥 MAIS ESPAÇO NA PAISAGEM (y > 480)
                 if (y > 480) {
                     doc.addPage();
                     y = 50;
@@ -286,10 +290,10 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             });
 
             // ============================================
-            // RODAPÉ
+            // RODAPÉ (CENTRALIZADO)
             // ============================================
 
-            y += 8;
+            y += 10;
 
             doc.moveTo(margin, y)
                 .lineTo(pageWidth - margin, y)
@@ -297,25 +301,28 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 .lineWidth(0.5)
                 .stroke();
 
-            y += 8;
+            y += 10;
 
-            doc.fontSize(8)
+            // 🔥 TEXTO CENTRALIZADO
+            doc.fontSize(9)
                 .font('Helvetica-Bold')
                 .fillColor(cores.texto)
-                .text(`Total de registros: ${pacientes.length}`, margin, y, { align: 'left' });
+                .text(`Total de registros: ${pacientes.length}`, 0, y, { align: 'center' });
 
-            doc.fontSize(7)
+            doc.moveDown(0.3);
+
+            doc.fontSize(8)
                 .font('Helvetica')
                 .fillColor(cores.textoClaro)
-                .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, y, { align: 'right' });
+                .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, doc.y, { align: 'center' });
 
-            // Numeração de páginas
+            // Numeração de páginas (centralizada)
             const totalPages = doc.bufferedPageRange().count;
             for (let i = 0; i < totalPages; i++) {
                 doc.switchToPage(i);
                 doc.fontSize(7)
                     .fillColor(cores.textoClaro)
-                    .text(`Página ${i + 1} de ${totalPages}`, margin, doc.page.height - 20, { align: 'center' });
+                    .text(`Página ${i + 1} de ${totalPages}`, 0, doc.page.height - 20, { align: 'center' });
             }
 
             doc.end();
