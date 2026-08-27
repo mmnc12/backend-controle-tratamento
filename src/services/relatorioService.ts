@@ -75,6 +75,8 @@ export const gerarExcelRedeBasica = async (pacientes: any[]): Promise<Buffer> =>
 
 // src/services/relatorioService.ts
 
+// src/services/relatorioService.ts
+
 export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
     let PDFDocument;
     try {
@@ -115,45 +117,44 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             };
 
             // ============================================
-            // CABEÇALHO COM LOGO (CENTRALIZADO)
+            // CABEÇALHO
             // ============================================
 
             const margin = 30;
             const pageWidth = doc.page.width;
             const centerX = pageWidth / 2;
 
-            // 🔥 LOGO - CENTRALIZADA
-            let logoLoaded = false;
-            const logoPath1 = path.join(__dirname, '..', 'assets', 'logo.png');
+            // 🔥 LOGO - TENTATIVA COM CAMINHO ABSOLUTO
+            try {
+                // Caminho absoluto para garantir
+                const logoPath = path.join(process.cwd(), 'src', 'assets', 'logo.png');
+                console.log('📄 Tentando logo em:', logoPath);
 
-            if (fs.existsSync(logoPath1)) {
-                try {
-                    // 🔥 LOGO CENTRALIZADA
+                if (fs.existsSync(logoPath)) {
                     const logoWidth = 60;
                     const logoX = centerX - (logoWidth / 2);
-                    doc.image(logoPath1, logoX, 15, { width: logoWidth });
-                    logoLoaded = true;
-                    console.log('✅ Logo carregada e centralizada!');
-                } catch (err) {
-                    console.log('⚠️ Erro ao carregar logo:', err);
+                    doc.image(logoPath, logoX, 15, { width: logoWidth });
+                    console.log('✅ Logo carregada com sucesso!');
+                } else {
+                    console.log('⚠️ Logo não encontrada em:', logoPath);
                 }
+            } catch (err) {
+                console.log('⚠️ Erro ao carregar logo:', err);
             }
 
-            // 🔥 TÍTULOS CENTRALIZADOS - COM MAIS ESPAÇO
-            const titleY = logoLoaded ? 85 : 30; // Mais espaço para os títulos
-
+            // Títulos centralizados
             doc.fontSize(16)
                 .font('Helvetica-Bold')
                 .fillColor(cores.primariaEscura)
-                .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, titleY, { align: 'center' });
+                .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, 80, { align: 'center' });
 
             doc.fontSize(14)
                 .font('Helvetica-Bold')
                 .fillColor(cores.primaria)
-                .text('SETOR DE ENDEMIAS', 0, titleY + 22, { align: 'center' });
+                .text('SETOR DE ENDEMIAS', 0, 102, { align: 'center' });
 
-            // 🔥 LINHA SEPARADORA (CENTRALIZADA)
-            const lineY = titleY + 50;
+            // Linha separadora
+            const lineY = 130;
             doc.moveTo(margin, lineY)
                 .lineTo(pageWidth - margin, lineY)
                 .strokeColor(cores.primaria)
@@ -161,7 +162,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 .stroke();
 
             // ============================================
-            // TÍTULO DO RELATÓRIO (CENTRALIZADO)
+            // TÍTULO DO RELATÓRIO
             // ============================================
 
             doc.moveDown(1.5);
@@ -177,10 +178,10 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 .fillColor(cores.textoClaro)
                 .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
 
-            doc.moveDown(1);
+            doc.moveDown(0.5);
 
             // ============================================
-            // TABELA COM TODAS AS COLUNAS
+            // TABELA
             // ============================================
 
             if (!pacientes || pacientes.length === 0) {
@@ -195,7 +196,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             let y = doc.y;
             const tableWidth = pageWidth - (margin * 2);
 
-            // 🔥 MAIS COLUNAS (como no b5.png)
+            // 🔥 COLUNAS
             const colunas = [
                 { header: 'NOME', width: 0.14 },
                 { header: 'ANO', width: 0.05 },
@@ -213,7 +214,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
             colunas.forEach(col => col.width = col.width * tableWidth);
 
-            // Cabeçalho da tabela
+            // Cabeçalho
             const drawTableHeader = (yPos: number) => {
                 let x = startX;
 
@@ -236,7 +237,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 return yPos + 24;
             };
 
-            // Linhas da tabela
+            // Linhas
             const drawTableRow = (rowData: string[], yPos: number, isAlternate: boolean) => {
                 let x = startX;
 
@@ -261,11 +262,17 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 return yPos + 20;
             };
 
-            // Desenhar tabela
             y = drawTableHeader(y);
 
+            // 🔥 CALCULAR QUANTAS LINHAS CABEM NA PÁGINA
+            const headerHeight = 24;
+            const rowHeight = 20;
+            const maxY = doc.page.height - 80;
+            const rowsPerPage = Math.floor((maxY - y) / rowHeight);
+
             pacientes.forEach((p, index) => {
-                if (y > 480) {
+                // 🔥 VERIFICAR SE PRECISA DE NOVA PÁGINA
+                if (y > maxY) {
                     doc.addPage();
                     y = 50;
                     y = drawTableHeader(y);
@@ -290,7 +297,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             });
 
             // ============================================
-            // RODAPÉ (CENTRALIZADO)
+            // RODAPÉ
             // ============================================
 
             y += 10;
@@ -303,7 +310,6 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
             y += 10;
 
-            // 🔥 TEXTO CENTRALIZADO
             doc.fontSize(9)
                 .font('Helvetica-Bold')
                 .fillColor(cores.texto)
@@ -316,7 +322,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 .fillColor(cores.textoClaro)
                 .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, doc.y, { align: 'center' });
 
-            // Numeração de páginas (centralizada)
+            // Numeração de páginas
             const totalPages = doc.bufferedPageRange().count;
             for (let i = 0; i < totalPages; i++) {
                 doc.switchToPage(i);
