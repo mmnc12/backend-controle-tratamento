@@ -13,35 +13,20 @@ export const gerarCSVRedeBasica = (pacientes: any[]): string => {
   }
 
   const headers = [
-    'Nome',
-    'Ano',
-    'PSF',
-    'Localidade',
-    'Quarteirão',
-    'Nº Imóvel',
-    'Entrega Documento',
-    'Entrega Medicamento',
-    'Data Tratamento',
-    'Data Revisão',
-    'Revisão',
-    'Telefone',
-    'Observação'
+    'Nome', 'Ano', 'PSF', 'Localidade', 'Quarteirão', 'Nº Imóvel',
+    'Entrega Documento', 'Entrega Medicamento', 'Data Tratamento',
+    'Data Revisão', 'Revisão', 'Telefone', 'Observação'
   ];
 
   const rows = pacientes.map(p => [
-    p.nome || '',
-    p.ano || '',
-    p.psf_nome || '',
-    p.localidade_nome || '',
-    p.quarteirao || '',
-    p.numero_imovel || '',
+    p.nome || '', p.ano || '', p.psf_nome || '', p.localidade_nome || '',
+    p.quarteirao || '', p.numero_imovel || '',
     p.entrega_documento === 'S' ? 'Sim' : 'Não',
     p.entrega_medicamento === 'S' ? 'Sim' : 'Não',
     p.data_tratamento ? new Date(p.data_tratamento).toLocaleDateString('pt-BR') : '',
     p.data_revisao ? new Date(p.data_revisao).toLocaleDateString('pt-BR') : '',
     p.revisao === 'S' ? 'Sim' : 'Não',
-    p.telefone || '',
-    p.observacao || ''
+    p.telefone || '', p.observacao || ''
   ]);
 
   return [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
@@ -52,13 +37,11 @@ export const gerarExcelRedeBasica = async (pacientes: any[]): Promise<Buffer> =>
   try {
     XLSX = require('xlsx');
   } catch {
-    throw new Error('Biblioteca xlsx não instalada. Execute: npm install xlsx');
+    throw new Error('Biblioteca xlsx não instalada.');
   }
 
   if (!pacientes || pacientes.length === 0) {
-    const ws = XLSX.utils.json_to_sheet([{
-      'Mensagem': 'Nenhum dado encontrado para os filtros selecionados'
-    }]);
+    const ws = XLSX.utils.json_to_sheet([{ 'Mensagem': 'Nenhum dado encontrado' }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Rede Básica');
     return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
@@ -81,13 +64,11 @@ export const gerarExcelRedeBasica = async (pacientes: any[]): Promise<Buffer> =>
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
-  const colWidths = [
+  ws['!cols'] = [
     { wch: 30 }, { wch: 10 }, { wch: 25 }, { wch: 25 },
     { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 },
-    { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 18 },
-    { wch: 30 }
+    { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 30 }
   ];
-  ws['!cols'] = colWidths;
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Rede Básica');
@@ -99,13 +80,12 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
   try {
     PDFDocument = require('pdfkit');
   } catch {
-    throw new Error('Biblioteca pdfkit não instalada. Execute: npm install pdfkit');
+    throw new Error('Biblioteca pdfkit não instalada.');
   }
 
   return new Promise((resolve, reject) => {
     try {
-      // 🔥 PÁGINA DEITADA
-      const doc = new PDFDocument({ 
+      const doc = new PDFDocument({
         margin: 30,
         size: 'A4',
         layout: 'landscape'
@@ -119,9 +99,6 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       });
       doc.on('error', reject);
 
-      // ============================================
-      // CORES
-      // ============================================
       const cores = {
         primaria: '#0066b3',
         primariaClara: '#e6f0fa',
@@ -133,39 +110,39 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
         branco: '#ffffff'
       };
 
-      // ============================================
-      // CABEÇALHO COM LOGO
-      // ============================================
-      
       const margin = 30;
       const pageWidth = doc.page.width;
-      const centerX = pageWidth / 2;
+      const pageHeight = doc.page.height;
+
+      // ============================================
+      // CABEÇALHO COM LOGO À ESQUERDA
+      // ============================================
       
-      // 🔥 LOGO - TENTATIVA COM CAMINHO ABSOLUTO
+      let logoLoaded = false;
       try {
         const logoPath = path.join(process.cwd(), 'src', 'assets', 'logo.png');
         if (fs.existsSync(logoPath)) {
-          const logoWidth = 60;
-          const logoX = centerX - (logoWidth / 2);
-          doc.image(logoPath, logoX, 15, { width: logoWidth });
+          doc.image(logoPath, margin, 15, { width: 55 });
+          logoLoaded = true;
         }
       } catch {
-        // Logo não encontrada, continuar sem
+        // Logo não encontrada
       }
 
-      // Títulos centralizados
-      doc.fontSize(16)
-         .font('Helvetica-Bold')
-         .fillColor(cores.primariaEscura)
-         .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, 80, { align: 'center' });
-      
+      const titleX = logoLoaded ? margin + 70 : margin;
+      const titleY = logoLoaded ? 18 : 20;
+
       doc.fontSize(14)
          .font('Helvetica-Bold')
+         .fillColor(cores.primariaEscura)
+         .text('SECRETARIA MUNICIPAL DE SAÚDE', titleX, titleY, { align: 'left' });
+
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
          .fillColor(cores.primaria)
-         .text('SETOR DE ENDEMIAS', 0, 102, { align: 'center' });
-      
-      // Linha separadora
-      const lineY = 130;
+         .text('SETOR DE ENDEMIAS', titleX, titleY + 20, { align: 'left' });
+
+      const lineY = 55;
       doc.moveTo(margin, lineY)
          .lineTo(pageWidth - margin, lineY)
          .strokeColor(cores.primaria)
@@ -173,18 +150,17 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
          .stroke();
 
       // ============================================
-      // TÍTULO DO RELATÓRIO
+      // TÍTULO DO RELATÓRIO (CENTRALIZADO)
       // ============================================
-      
-      doc.moveDown(1.5);
-      doc.fontSize(18)
+
+      doc.moveDown(0.8);
+      doc.fontSize(16)
          .font('Helvetica-Bold')
          .fillColor(cores.texto)
          .text('RELATÓRIO - REDE BÁSICA', { align: 'center' });
 
-      doc.moveDown(0.5);
-
-      doc.fontSize(10)
+      doc.moveDown(0.3);
+      doc.fontSize(9)
          .font('Helvetica')
          .fillColor(cores.textoClaro)
          .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
@@ -206,8 +182,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       const startX = margin;
       let y = doc.y;
       const tableWidth = pageWidth - (margin * 2);
-      
-      // 🔥 COLUNAS
+
       const colunas = [
         { header: 'NOME', width: 0.14 },
         { header: 'ANO', width: 0.05 },
@@ -225,61 +200,50 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
       colunas.forEach(col => col.width = col.width * tableWidth);
 
-      // Cabeçalho da tabela
       const drawTableHeader = (yPos: number) => {
         let x = startX;
-        
         doc.rect(startX, yPos - 4, tableWidth, 24)
            .fill(cores.primaria);
-        
         doc.font('Helvetica-Bold')
            .fontSize(8)
            .fillColor(cores.branco);
-        
         colunas.forEach((col) => {
-          doc.text(col.header, x, yPos + 1, { 
-            width: col.width, 
+          doc.text(col.header, x, yPos + 1, {
+            width: col.width,
             align: 'center',
             ellipsis: true
           });
           x += col.width;
         });
-        
         return yPos + 24;
       };
 
-      // Linhas da tabela
       const drawTableRow = (rowData: string[], yPos: number, isAlternate: boolean) => {
         let x = startX;
-        
         if (isAlternate) {
           doc.rect(startX, yPos - 2, tableWidth, 20)
              .fill(cores.primariaClara);
         }
-        
         doc.font('Helvetica')
            .fontSize(7.5)
            .fillColor(cores.texto);
-        
         rowData.forEach((text, index) => {
-          doc.text(text, x, yPos, { 
-            width: colunas[index].width, 
+          doc.text(text, x, yPos, {
+            width: colunas[index].width,
             align: 'center',
             ellipsis: true
           });
           x += colunas[index].width;
         });
-        
         return yPos + 20;
       };
 
-      // 🔥 RENDERIZAR TABELA
       y = drawTableHeader(y);
       
-      const maxY = doc.page.height - 80;
+      const maxY = pageHeight - margin - 60;
 
       pacientes.forEach((p, index) => {
-        if (y > maxY) {
+        if (y > maxY && index < pacientes.length - 1) {
           doc.addPage();
           y = 50;
           y = drawTableHeader(y);
@@ -306,30 +270,26 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       // ============================================
       // RODAPÉ
       // ============================================
-      
+
       y += 10;
-      
       doc.moveTo(margin, y)
          .lineTo(pageWidth - margin, y)
          .strokeColor(cores.cinzaBorda)
          .lineWidth(0.5)
          .stroke();
-      
+
       y += 10;
-      
       doc.fontSize(9)
          .font('Helvetica-Bold')
          .fillColor(cores.texto)
          .text(`Total de registros: ${pacientes.length}`, 0, y, { align: 'center' });
-      
+
       doc.moveDown(0.3);
-      
       doc.fontSize(8)
          .font('Helvetica')
          .fillColor(cores.textoClaro)
          .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, doc.y, { align: 'center' });
 
-      // Numeração de páginas
       const totalPages = doc.bufferedPageRange().count;
       for (let i = 0; i < totalPages; i++) {
         doc.switchToPage(i);
@@ -340,7 +300,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
       doc.end();
     } catch (error) {
-      console.error('❌ Erro na geração do PDF:', error);
+      console.error('❌ Erro na geração do PDF Rede Básica:', error);
       reject(error);
     }
   });
@@ -356,39 +316,24 @@ export const gerarCSVRotina = (pacientes: any[]): string => {
   }
 
   const headers = [
-    'Nome',
-    'Nº Amostra',
-    'Ano',
-    'PSF',
-    'Localidade',
-    'Quarteirão',
-    'Nº Imóvel',
-    'Entrega Resultado',
-    'Entrega Documento',
-    'Entrega Medicamento',
-    'Data Tratamento',
-    'Data Revisão',
-    'Revisão',
-    'Telefone',
-    'Observação'
+    'Nome', 'Nº Amostra', 'Ano', 'PSF', 'Localidade',
+    'Quarteirão', 'Nº Imóvel', 'Entrega Resultado',
+    'Entrega Documento', 'Entrega Medicamento',
+    'Data Tratamento', 'Data Revisão', 'Revisão',
+    'Telefone', 'Observação'
   ];
 
   const rows = pacientes.map(p => [
-    p.nome || '',
-    p.numero_amostra || '',
-    p.ano || '',
-    p.psf_nome || '',
-    p.localidade_nome || '',
-    p.quarteirao || '',
-    p.numero_imovel || '',
+    p.nome || '', p.numero_amostra || '', p.ano || '',
+    p.psf_nome || '', p.localidade_nome || '',
+    p.quarteirao || '', p.numero_imovel || '',
     p.entrega_resultado === 'S' ? 'Sim' : 'Não',
     p.entrega_documento === 'S' ? 'Sim' : 'Não',
     p.entrega_medicamento === 'S' ? 'Sim' : 'Não',
     p.data_tratamento ? new Date(p.data_tratamento).toLocaleDateString('pt-BR') : '',
     p.data_revisao ? new Date(p.data_revisao).toLocaleDateString('pt-BR') : '',
     p.revisao === 'S' ? 'Sim' : 'Não',
-    p.telefone || '',
-    p.observacao || ''
+    p.telefone || '', p.observacao || ''
   ]);
 
   return [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
@@ -399,13 +344,11 @@ export const gerarExcelRotina = async (pacientes: any[]): Promise<Buffer> => {
   try {
     XLSX = require('xlsx');
   } catch {
-    throw new Error('Biblioteca xlsx não instalada. Execute: npm install xlsx');
+    throw new Error('Biblioteca xlsx não instalada.');
   }
 
   if (!pacientes || pacientes.length === 0) {
-    const ws = XLSX.utils.json_to_sheet([{
-      'Mensagem': 'Nenhum dado encontrado para os filtros selecionados'
-    }]);
+    const ws = XLSX.utils.json_to_sheet([{ 'Mensagem': 'Nenhum dado encontrado' }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Rotina');
     return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
@@ -430,13 +373,12 @@ export const gerarExcelRotina = async (pacientes: any[]): Promise<Buffer> => {
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
-  const colWidths = [
+  ws['!cols'] = [
     { wch: 30 }, { wch: 15 }, { wch: 10 }, { wch: 25 },
     { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 18 },
     { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 15 },
     { wch: 12 }, { wch: 18 }, { wch: 30 }
   ];
-  ws['!cols'] = colWidths;
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Rotina');
@@ -448,12 +390,12 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
   try {
     PDFDocument = require('pdfkit');
   } catch {
-    throw new Error('Biblioteca pdfkit não instalada. Execute: npm install pdfkit');
+    throw new Error('Biblioteca pdfkit não instalada.');
   }
 
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ 
+      const doc = new PDFDocument({
         margin: 30,
         size: 'A4',
         layout: 'landscape'
@@ -480,44 +422,45 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
 
       const margin = 30;
       const pageWidth = doc.page.width;
-      const centerX = pageWidth / 2;
-      
+      const pageHeight = doc.page.height;
+
+      let logoLoaded = false;
       try {
         const logoPath = path.join(process.cwd(), 'src', 'assets', 'logo.png');
         if (fs.existsSync(logoPath)) {
-          const logoWidth = 60;
-          const logoX = centerX - (logoWidth / 2);
-          doc.image(logoPath, logoX, 15, { width: logoWidth });
+          doc.image(logoPath, margin, 15, { width: 55 });
+          logoLoaded = true;
         }
-      } catch {
-        // Logo não encontrada
-      }
+      } catch {}
 
-      doc.fontSize(16)
-         .font('Helvetica-Bold')
-         .fillColor(cores.primariaEscura)
-         .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, 80, { align: 'center' });
-      
+      const titleX = logoLoaded ? margin + 70 : margin;
+      const titleY = logoLoaded ? 18 : 20;
+
       doc.fontSize(14)
          .font('Helvetica-Bold')
+         .fillColor(cores.primariaEscura)
+         .text('SECRETARIA MUNICIPAL DE SAÚDE', titleX, titleY, { align: 'left' });
+
+      doc.fontSize(12)
+         .font('Helvetica-Bold')
          .fillColor(cores.primaria)
-         .text('SETOR DE ENDEMIAS', 0, 102, { align: 'center' });
-      
-      const lineY = 130;
+         .text('SETOR DE ENDEMIAS', titleX, titleY + 20, { align: 'left' });
+
+      const lineY = 55;
       doc.moveTo(margin, lineY)
          .lineTo(pageWidth - margin, lineY)
          .strokeColor(cores.primaria)
          .lineWidth(1.5)
          .stroke();
 
-      doc.moveDown(1.5);
-      doc.fontSize(18)
+      doc.moveDown(0.8);
+      doc.fontSize(16)
          .font('Helvetica-Bold')
          .fillColor(cores.texto)
          .text('RELATÓRIO - ROTINA', { align: 'center' });
 
-      doc.moveDown(0.5);
-      doc.fontSize(10)
+      doc.moveDown(0.3);
+      doc.fontSize(9)
          .font('Helvetica')
          .fillColor(cores.textoClaro)
          .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
@@ -535,7 +478,7 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
       const startX = margin;
       let y = doc.y;
       const tableWidth = pageWidth - (margin * 2);
-      
+
       const colunas = [
         { header: 'NOME', width: 0.12 },
         { header: 'Nº AMOSTRA', width: 0.08 },
@@ -563,8 +506,8 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
            .fontSize(7.5)
            .fillColor(cores.branco);
         colunas.forEach((col) => {
-          doc.text(col.header, x, yPos + 1, { 
-            width: col.width, 
+          doc.text(col.header, x, yPos + 1, {
+            width: col.width,
             align: 'center',
             ellipsis: true
           });
@@ -583,8 +526,8 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
            .fontSize(7)
            .fillColor(cores.texto);
         rowData.forEach((text, index) => {
-          doc.text(text, x, yPos, { 
-            width: colunas[index].width, 
+          doc.text(text, x, yPos, {
+            width: colunas[index].width,
             align: 'center',
             ellipsis: true
           });
@@ -594,10 +537,10 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
       };
 
       y = drawTableHeader(y);
-      const maxY = doc.page.height - 80;
+      const maxY = pageHeight - margin - 60;
 
       pacientes.forEach((p, index) => {
-        if (y > maxY) {
+        if (y > maxY && index < pacientes.length - 1) {
           doc.addPage();
           y = 50;
           y = drawTableHeader(y);
@@ -629,13 +572,13 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
          .strokeColor(cores.cinzaBorda)
          .lineWidth(0.5)
          .stroke();
-      
+
       y += 10;
       doc.fontSize(9)
          .font('Helvetica-Bold')
          .fillColor(cores.texto)
          .text(`Total de registros: ${pacientes.length}`, 0, y, { align: 'center' });
-      
+
       doc.moveDown(0.3);
       doc.fontSize(8)
          .font('Helvetica')
