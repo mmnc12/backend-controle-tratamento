@@ -1,5 +1,6 @@
 // src/services/relatorioService.ts
 import path from 'path';
+import fs from 'fs';
 // ============================================
 // FUNÇÕES PARA REDE BÁSICA
 // ============================================
@@ -100,47 +101,72 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             // CORES
             // ============================================
             const cores = {
-                primaria: '#0ea5e9',
-                primariaEscura: '#0369a1',
-                cinzaClaro: '#f1f5f9',
-                cinzaBorda: '#e2e8f0',
-                texto: '#0f172a',
-                textoClaro: '#64748b',
-                branco: '#ffffff'
+                primaria: '#0066b3',
+                primariaClara: '#e8f4fd',
+                primariaEscura: '#004d8c',
+                cinzaClaro: '#f8f9fa',
+                cinzaBorda: '#dee2e6',
+                texto: '#1a1a2e',
+                textoClaro: '#6c757d',
+                branco: '#ffffff',
+                verde: '#28a745',
+                vermelho: '#dc3545',
+                amarelo: '#ffc107'
             };
 
             // ============================================
             // CABEÇALHO COM LOGO
             // ============================================
-            try {
-                const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
-                doc.image(logoPath, 50, 30, { width: 60 });
-            } catch (error) {
-                console.log('Logo não encontrada, continuando sem logo.');
+
+            const pageWidth = doc.page.width;
+            const margin = 50;
+
+            // 🔥 LOGO - Ajuste o caminho conforme sua logo
+            const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
+            console.log('📄 Buscando logo em:', logoPath);
+
+            if (fs.existsSync(logoPath)) {
+                console.log('✅ Logo encontrada!');
+                doc.image(logoPath, margin, 30, { width: 70 });
+            } else {
+                console.log('⚠️ Logo não encontrada em:', logoPath);
             }
 
-            // Título principal
-            doc.fontSize(16)
-                .font('Helvetica-Bold')
-                .fillColor(cores.primaria)
-                .text('SECRETARIA MUNICIPAL DE SAÚDE', { align: 'center' });
+            // Cabeçalho - alinhado à direita da logo
+            const headerX = margin + 90;
 
             doc.fontSize(14)
                 .font('Helvetica-Bold')
                 .fillColor(cores.primariaEscura)
-                .text('SETOR DE ENDEMIAS', { align: 'center' });
+                .text('SECRETARIA MUNICIPAL DE SAÚDE', headerX, 30, { align: 'left' });
+
+            doc.fontSize(12)
+                .font('Helvetica-Bold')
+                .fillColor(cores.primaria)
+                .text('SETOR DE ENDEMIAS', headerX, 50, { align: 'left' });
 
             doc.moveDown(0.5);
 
-            // Título do relatório
-            doc.fontSize(18)
+            // Linha separadora
+            doc.moveTo(margin, 85)
+                .lineTo(pageWidth - margin, 85)
+                .strokeColor(cores.primaria)
+                .lineWidth(2)
+                .stroke();
+
+            // ============================================
+            // TÍTULO DO RELATÓRIO
+            // ============================================
+
+            doc.moveDown(1);
+            doc.fontSize(20)
                 .font('Helvetica-Bold')
                 .fillColor(cores.texto)
                 .text('RELATÓRIO - REDE BÁSICA', { align: 'center' });
 
             doc.moveDown(0.3);
 
-            // Data de geração
+            // Informações do relatório
             doc.fontSize(10)
                 .font('Helvetica')
                 .fillColor(cores.textoClaro)
@@ -161,32 +187,32 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             }
 
             // Configuração da tabela
-            const startX = 50;
+            const startX = margin;
             let y = doc.y;
-            const pageWidth = doc.page.width - 100;
+            const tableWidth = pageWidth - (margin * 2);
 
             const colunas = [
-                { header: 'NOME', width: 80 },
-                { header: 'ANO', width: 40 },
-                { header: 'PSF', width: 80 },
-                { header: 'LOCALIDADE', width: 80 },
-                { header: 'QUART.', width: 45 },
-                { header: 'Nº IMÓVEL', width: 50 },
-                { header: 'ENT. DOC', width: 45 },
-                { header: 'ENT. MED', width: 45 },
-                { header: 'DATA TRAT', width: 60 },
-                { header: 'REVISÃO', width: 50 },
+                { header: 'NOME', width: 0.18 },
+                { header: 'ANO', width: 0.06 },
+                { header: 'PSF', width: 0.14 },
+                { header: 'LOCALIDADE', width: 0.14 },
+                { header: 'QUART.', width: 0.07 },
+                { header: 'Nº IMÓVEL', width: 0.08 },
+                { header: 'ENT. DOC', width: 0.07 },
+                { header: 'ENT. MED', width: 0.07 },
+                { header: 'DATA TRAT', width: 0.10 },
+                { header: 'REVISÃO', width: 0.09 },
             ];
 
-            const totalWidth = colunas.reduce((sum, col) => sum + col.width, 0);
-            const scale = pageWidth / totalWidth;
-            colunas.forEach(col => col.width = col.width * scale);
+            // Calcular largura de cada coluna
+            colunas.forEach(col => col.width = col.width * tableWidth);
 
-            // Cabeçalho
+            // Cabeçalho da tabela
             const drawTableHeader = (yPos: number) => {
                 let x = startX;
 
-                doc.rect(startX, yPos - 5, pageWidth, 25)
+                // Fundo do cabeçalho
+                doc.roundedRect(startX, yPos - 5, tableWidth, 28, 3)
                     .fill(cores.primaria);
 
                 doc.font('Helvetica-Bold')
@@ -194,24 +220,26 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                     .fillColor(cores.branco);
 
                 colunas.forEach((col) => {
-                    doc.text(col.header, x, yPos, {
+                    doc.text(col.header, x, yPos + 2, {
                         width: col.width,
                         align: 'center',
-                        ellipsis: true
+                        ellipsis: true,
+                        lineBreak: false
                     });
                     x += col.width;
                 });
 
-                return yPos + 20;
+                return yPos + 28;
             };
 
-            // Linhas
+            // Linha da tabela
             const drawTableRow = (rowData: string[], yPos: number, isAlternate: boolean) => {
                 let x = startX;
 
+                // Fundo da linha
                 if (isAlternate) {
-                    doc.rect(startX, yPos - 5, pageWidth, 20)
-                        .fill(cores.cinzaClaro);
+                    doc.roundedRect(startX, yPos - 3, tableWidth, 22, 2)
+                        .fill(cores.primariaClara);
                 }
 
                 doc.font('Helvetica')
@@ -219,25 +247,30 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                     .fillColor(cores.texto);
 
                 rowData.forEach((text, index) => {
-                    doc.text(text, x, yPos, {
+                    doc.text(text, x, yPos + 1, {
                         width: colunas[index].width,
                         align: 'center',
-                        ellipsis: true
+                        ellipsis: true,
+                        lineBreak: false
                     });
                     x += colunas[index].width;
                 });
 
-                return yPos + 20;
+                return yPos + 22;
             };
 
+            // Desenhar cabeçalho
             y = drawTableHeader(y);
 
+            // Desenhar linhas
             pacientes.forEach((p, index) => {
                 if (y > 720) {
                     doc.addPage();
                     y = 50;
                     y = drawTableHeader(y);
                 }
+
+                const revisao = p.revisao === 'S' ? 'Sim' : 'Não';
 
                 const rowData = [
                     p.nome || '',
@@ -249,7 +282,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                     p.entrega_documento === 'S' ? 'S' : 'N',
                     p.entrega_medicamento === 'S' ? 'S' : 'N',
                     p.data_tratamento ? new Date(p.data_tratamento).toLocaleDateString('pt-BR') : '',
-                    p.revisao === 'S' ? 'Sim' : 'Não'
+                    revisao
                 ];
 
                 y = drawTableRow(rowData, y, index % 2 === 0);
@@ -259,27 +292,41 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             // RODAPÉ
             // ============================================
 
-            doc.moveDown(1);
+            y += 10;
 
-            doc.moveTo(50, y + 10)
-                .lineTo(doc.page.width - 50, y + 10)
-                .stroke(cores.cinzaBorda);
+            // Linha separadora
+            doc.moveTo(margin, y)
+                .lineTo(pageWidth - margin, y)
+                .strokeColor(cores.cinzaBorda)
+                .lineWidth(1)
+                .stroke();
 
-            doc.moveDown(0.5);
+            y += 10;
 
-            doc.fontSize(10)
+            // Total de registros
+            doc.fontSize(9)
+                .font('Helvetica-Bold')
+                .fillColor(cores.texto)
+                .text(`Total de registros: ${pacientes.length}`, margin, y, { align: 'left' });
+
+            // Informações do sistema
+            doc.fontSize(8)
                 .font('Helvetica')
                 .fillColor(cores.textoClaro)
-                .text(`Total de registros: ${pacientes.length}`, { align: 'center' });
+                .text(`Sistema de Controle de Tratamento - Setor de Endemias`, 0, y, { align: 'right' });
 
-            doc.moveDown(0.3);
-
-            doc.fontSize(8)
-                .fillColor(cores.textoClaro)
-                .text(`Relatório gerado por Sistema de Controle de Tratamento`, { align: 'center' });
+            // Rodapé na última página
+            const totalPages = doc.bufferedPageRange().count;
+            for (let i = 0; i < totalPages; i++) {
+                doc.switchToPage(i);
+                doc.fontSize(8)
+                    .fillColor(cores.textoClaro)
+                    .text(`Página ${i + 1} de ${totalPages}`, margin, doc.page.height - 30, { align: 'center' });
+            }
 
             doc.end();
         } catch (error) {
+            console.error('❌ Erro na geração do PDF:', error);
             reject(error);
         }
     });
