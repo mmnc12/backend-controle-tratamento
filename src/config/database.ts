@@ -1,31 +1,32 @@
-import { Pool } from 'pg';
+import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
-import dns from 'dns';
-
-// Forçar resolução IPv4
-dns.setDefaultResultOrder('ipv4first');
 
 dotenv.config();
 
-// 🔥 USAR O POOLER (AWS) EM VEZ DO DOMÍNIO PRINCIPAL
-const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:alvorada%4080@aws-0-sa-east-1.pooler.supabase.com:6543/postgres';
-
-const pool = new Pool({
-    connectionString: databaseUrl,
+// Configuração para MySQL (Clever Cloud)
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '3306'),
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'test',
+    // Para Clever Cloud, SSL é necessário
     ssl: {
         rejectUnauthorized: false
     },
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 15000,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    connectTimeout: 10000,
 });
 
 export const testConnection = async () => {
     try {
-        const client = await pool.connect();
+        const connection = await pool.getConnection();
         console.log('✅ Conexão com o banco de dados estabelecida com sucesso!');
-        console.log(`📊 Banco: ${process.env.DB_NAME || 'postgres'}`);
-        client.release();
+        console.log(`📊 Host: ${process.env.DB_HOST || 'Clever Cloud'}`);
+        console.log(`📊 Banco: ${process.env.DB_NAME || 'MySQL'}`);
+        connection.release();
         return true;
     } catch (error) {
         console.error('❌ Erro ao conectar ao banco de dados:', error);
@@ -34,13 +35,13 @@ export const testConnection = async () => {
 };
 
 // ============================================
-// FUNÇÕES DE QUERY
+// FUNÇÕES DE QUERY (MySQL)
 // ============================================
 
 export const query = async <T = any>(sql: string, values?: any[]): Promise<T[]> => {
     try {
-        const result = await pool.query(sql, values);
-        return result.rows as T[];
+        const [rows] = await pool.execute(sql, values);
+        return rows as T[];
     } catch (error) {
         console.error('Erro na query:', error);
         throw error;
@@ -49,21 +50,21 @@ export const query = async <T = any>(sql: string, values?: any[]): Promise<T[]> 
 
 export const queryOne = async <T = any>(sql: string, values?: any[]): Promise<T | null> => {
     try {
-        const result = await pool.query(sql, values);
-        return result.rows.length > 0 ? result.rows[0] as T : null;
+        const [rows] = await pool.execute(sql, values);
+        return (rows as any[]).length > 0 ? (rows as any[])[0] as T : null;
     } catch (error) {
-        console.error('Erro na query:', error);
+        console.error('Erro na queryOne:', error);
         throw error;
     }
 };
 
 export const execute = async (sql: string, values?: any[]): Promise<any> => {
     try {
-        const result = await pool.query(sql, values);
+        const [result] = await pool.execute(sql, values);
         return {
-            insertId: result.rows[0]?.id || 0,
-            affectedRows: result.rowCount || 0,
-            changedRows: result.rowCount || 0
+            insertId: (result as any).insertId || 0,
+            affectedRows: (result as any).affectedRows || 0,
+            changedRows: (result as any).changedRows || 0
         };
     } catch (error) {
         console.error('Erro na execução:', error);
