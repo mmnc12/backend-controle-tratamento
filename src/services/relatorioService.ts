@@ -264,11 +264,9 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
             y = drawTableHeader(y);
 
-            // 🔥 CALCULAR QUANTAS LINHAS CABEM NA PÁGINA
-            const headerHeight = 24;
+            // 🔥 CALCULAR ESPAÇO DISPONÍVEL
             const rowHeight = 20;
             const maxY = doc.page.height - 80;
-            const rowsPerPage = Math.floor((maxY - y) / rowHeight);
 
             pacientes.forEach((p, index) => {
                 // 🔥 VERIFICAR SE PRECISA DE NOVA PÁGINA
