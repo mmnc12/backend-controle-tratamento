@@ -1,5 +1,5 @@
 // src/services/relatorioService.ts
-
+import path from 'path';
 // ============================================
 // FUNÇÕES PARA REDE BÁSICA
 // ============================================
@@ -110,15 +110,13 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             };
 
             // ============================================
-            // CABEÇALHO
+            // CABEÇALHO COM LOGO
             // ============================================
-
-            // Logo (se tiver a imagem, substitua o caminho)
             try {
-                // doc.image('src/assets/logo.png', 50, 30, { width: 60 });
-                // Se não tiver logo, comente a linha acima
-            } catch {
-                // Sem logo, apenas texto
+                const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
+                doc.image(logoPath, 50, 30, { width: 60 });
+            } catch (error) {
+                console.log('Logo não encontrada, continuando sem logo.');
             }
 
             // Título principal
@@ -167,7 +165,6 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             let y = doc.y;
             const pageWidth = doc.page.width - 100;
 
-            // Largura das colunas (proporções)
             const colunas = [
                 { header: 'NOME', width: 80 },
                 { header: 'ANO', width: 40 },
@@ -181,16 +178,14 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 { header: 'REVISÃO', width: 50 },
             ];
 
-            // Calcular largura total e ajustar
             const totalWidth = colunas.reduce((sum, col) => sum + col.width, 0);
             const scale = pageWidth / totalWidth;
             colunas.forEach(col => col.width = col.width * scale);
 
-            // Função para desenhar cabeçalho da tabela
+            // Cabeçalho
             const drawTableHeader = (yPos: number) => {
                 let x = startX;
 
-                // Fundo do cabeçalho
                 doc.rect(startX, yPos - 5, pageWidth, 25)
                     .fill(cores.primaria);
 
@@ -210,11 +205,10 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 return yPos + 20;
             };
 
-            // Função para desenhar linha da tabela
+            // Linhas
             const drawTableRow = (rowData: string[], yPos: number, isAlternate: boolean) => {
                 let x = startX;
 
-                // Fundo da linha
                 if (isAlternate) {
                     doc.rect(startX, yPos - 5, pageWidth, 20)
                         .fill(cores.cinzaClaro);
@@ -236,12 +230,9 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 return yPos + 20;
             };
 
-            // Desenhar cabeçalho
             y = drawTableHeader(y);
 
-            // Desenhar linhas de dados
             pacientes.forEach((p, index) => {
-                // Verificar se precisa de nova página
                 if (y > 720) {
                     doc.addPage();
                     y = 50;
@@ -270,14 +261,12 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
             doc.moveDown(1);
 
-            // Linha separadora
             doc.moveTo(50, y + 10)
                 .lineTo(doc.page.width - 50, y + 10)
                 .stroke(cores.cinzaBorda);
 
             doc.moveDown(0.5);
 
-            // Total de registros
             doc.fontSize(10)
                 .font('Helvetica')
                 .fillColor(cores.textoClaro)
