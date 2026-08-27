@@ -77,63 +77,222 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
     try {
         PDFDocument = require('pdfkit');
     } catch {
-        throw new Error('Biblioteca pdfkit não instalada. Execute: npm install pdfkit');
+        throw new Error('Biblioteca pdfkit não instalada.');
     }
 
     return new Promise((resolve, reject) => {
         try {
-            const doc = new PDFDocument({ margin: 50 });
+            const doc = new PDFDocument({
+                margin: 50,
+                size: 'A4',
+                layout: 'portrait'
+            });
             const chunks: Buffer[] = [];
 
-            doc.on('data', (chunk: Buffer) => { chunks.push(chunk); });
+            doc.on('data', (chunk: Buffer) => chunks.push(chunk));
             doc.on('end', () => {
                 const pdfBuffer = Buffer.concat(chunks as any);
                 resolve(pdfBuffer);
             });
             doc.on('error', reject);
 
-            doc.fontSize(18).text('Relatório - Rede Básica', { align: 'center' });
-            doc.moveDown();
-            doc.fontSize(10).text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`);
-            doc.moveDown();
+            // ============================================
+            // CORES
+            // ============================================
+            const cores = {
+                primaria: '#0ea5e9',
+                primariaEscura: '#0369a1',
+                cinzaClaro: '#f1f5f9',
+                cinzaBorda: '#e2e8f0',
+                texto: '#0f172a',
+                textoClaro: '#64748b',
+                branco: '#ffffff'
+            };
+
+            // ============================================
+            // CABEÇALHO
+            // ============================================
+
+            // Logo (se tiver a imagem, substitua o caminho)
+            try {
+                // doc.image('src/assets/logo.png', 50, 30, { width: 60 });
+                // Se não tiver logo, comente a linha acima
+            } catch {
+                // Sem logo, apenas texto
+            }
+
+            // Título principal
+            doc.fontSize(16)
+                .font('Helvetica-Bold')
+                .fillColor(cores.primaria)
+                .text('SECRETARIA MUNICIPAL DE SAÚDE', { align: 'center' });
+
+            doc.fontSize(14)
+                .font('Helvetica-Bold')
+                .fillColor(cores.primariaEscura)
+                .text('SETOR DE ENDEMIAS', { align: 'center' });
+
+            doc.moveDown(0.5);
+
+            // Título do relatório
+            doc.fontSize(18)
+                .font('Helvetica-Bold')
+                .fillColor(cores.texto)
+                .text('RELATÓRIO - REDE BÁSICA', { align: 'center' });
+
+            doc.moveDown(0.3);
+
+            // Data de geração
+            doc.fontSize(10)
+                .font('Helvetica')
+                .fillColor(cores.textoClaro)
+                .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
+
+            doc.moveDown(1);
+
+            // ============================================
+            // TABELA
+            // ============================================
 
             if (!pacientes || pacientes.length === 0) {
-                doc.fontSize(14).text('Nenhum dado encontrado para os filtros selecionados.', { align: 'center' });
+                doc.fontSize(14)
+                    .fillColor(cores.textoClaro)
+                    .text('Nenhum dado encontrado para os filtros selecionados.', { align: 'center' });
                 doc.end();
                 return;
             }
 
-            doc.fontSize(10);
+            // Configuração da tabela
             const startX = 50;
             let y = doc.y;
-            const colWidths = [200, 80, 120, 120];
-            const headers = ['Nome', 'Ano', 'PSF', 'Localidade'];
+            const pageWidth = doc.page.width - 100;
 
-            doc.font('Helvetica-Bold');
-            let x = startX;
-            headers.forEach((header, i) => {
-                doc.text(header, x, y, { width: colWidths[i], align: 'left' });
-                x += colWidths[i];
-            });
+            // Largura das colunas (proporções)
+            const colunas = [
+                { header: 'NOME', width: 80 },
+                { header: 'ANO', width: 40 },
+                { header: 'PSF', width: 80 },
+                { header: 'LOCALIDADE', width: 80 },
+                { header: 'QUART.', width: 45 },
+                { header: 'Nº IMÓVEL', width: 50 },
+                { header: 'ENT. DOC', width: 45 },
+                { header: 'ENT. MED', width: 45 },
+                { header: 'DATA TRAT', width: 60 },
+                { header: 'REVISÃO', width: 50 },
+            ];
 
-            y += 20;
-            doc.font('Helvetica');
+            // Calcular largura total e ajustar
+            const totalWidth = colunas.reduce((sum, col) => sum + col.width, 0);
+            const scale = pageWidth / totalWidth;
+            colunas.forEach(col => col.width = col.width * scale);
 
-            pacientes.forEach((p) => {
-                if (y > 700) { doc.addPage(); y = 50; }
-                x = startX;
-                const rowData = [p.nome || '', String(p.ano || ''), p.psf_nome || '', p.localidade_nome || ''];
-                rowData.forEach((text, i) => {
-                    doc.text(text, x, y, { width: colWidths[i], align: 'left' });
-                    x += colWidths[i];
+            // Função para desenhar cabeçalho da tabela
+            const drawTableHeader = (yPos: number) => {
+                let x = startX;
+
+                // Fundo do cabeçalho
+                doc.rect(startX, yPos - 5, pageWidth, 25)
+                    .fill(cores.primaria);
+
+                doc.font('Helvetica-Bold')
+                    .fontSize(9)
+                    .fillColor(cores.branco);
+
+                colunas.forEach((col) => {
+                    doc.text(col.header, x, yPos, {
+                        width: col.width,
+                        align: 'center',
+                        ellipsis: true
+                    });
+                    x += col.width;
                 });
-                y += 20;
+
+                return yPos + 20;
+            };
+
+            // Função para desenhar linha da tabela
+            const drawTableRow = (rowData: string[], yPos: number, isAlternate: boolean) => {
+                let x = startX;
+
+                // Fundo da linha
+                if (isAlternate) {
+                    doc.rect(startX, yPos - 5, pageWidth, 20)
+                        .fill(cores.cinzaClaro);
+                }
+
+                doc.font('Helvetica')
+                    .fontSize(8)
+                    .fillColor(cores.texto);
+
+                rowData.forEach((text, index) => {
+                    doc.text(text, x, yPos, {
+                        width: colunas[index].width,
+                        align: 'center',
+                        ellipsis: true
+                    });
+                    x += colunas[index].width;
+                });
+
+                return yPos + 20;
+            };
+
+            // Desenhar cabeçalho
+            y = drawTableHeader(y);
+
+            // Desenhar linhas de dados
+            pacientes.forEach((p, index) => {
+                // Verificar se precisa de nova página
+                if (y > 720) {
+                    doc.addPage();
+                    y = 50;
+                    y = drawTableHeader(y);
+                }
+
+                const rowData = [
+                    p.nome || '',
+                    String(p.ano || ''),
+                    p.psf_nome || '',
+                    p.localidade_nome || '',
+                    p.quarteirao || '',
+                    p.numero_imovel || '',
+                    p.entrega_documento === 'S' ? 'S' : 'N',
+                    p.entrega_medicamento === 'S' ? 'S' : 'N',
+                    p.data_tratamento ? new Date(p.data_tratamento).toLocaleDateString('pt-BR') : '',
+                    p.revisao === 'S' ? 'Sim' : 'Não'
+                ];
+
+                y = drawTableRow(rowData, y, index % 2 === 0);
             });
 
-            doc.moveDown();
-            doc.fontSize(10).text(`Total de registros: ${pacientes.length}`, { align: 'center' });
+            // ============================================
+            // RODAPÉ
+            // ============================================
+
+            doc.moveDown(1);
+
+            // Linha separadora
+            doc.moveTo(50, y + 10)
+                .lineTo(doc.page.width - 50, y + 10)
+                .stroke(cores.cinzaBorda);
+
+            doc.moveDown(0.5);
+
+            // Total de registros
+            doc.fontSize(10)
+                .font('Helvetica')
+                .fillColor(cores.textoClaro)
+                .text(`Total de registros: ${pacientes.length}`, { align: 'center' });
+
+            doc.moveDown(0.3);
+
+            doc.fontSize(8)
+                .fillColor(cores.textoClaro)
+                .text(`Relatório gerado por Sistema de Controle de Tratamento`, { align: 'center' });
+
             doc.end();
-        } catch (error) { reject(error); }
+        } catch (error) {
+            reject(error);
+        }
     });
 };
 
