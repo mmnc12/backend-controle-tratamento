@@ -115,32 +115,49 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       const pageHeight = doc.page.height;
 
       // ============================================
-      // CABEÇALHO COM LOGO À ESQUERDA
+      // LOGO - TESTA VÁRIOS CAMINHOS
       // ============================================
       
       let logoLoaded = false;
-      try {
-        const logoPath = path.join(process.cwd(), 'src', 'assets', 'logo.png');
-        if (fs.existsSync(logoPath)) {
-          doc.image(logoPath, margin, 15, { width: 55 });
-          logoLoaded = true;
+      const logoPaths = [
+        path.join(process.cwd(), 'src', 'assets', 'logo.png'),
+        path.join(__dirname, '..', 'assets', 'logo.png'),
+        path.join(process.cwd(), 'assets', 'logo.png'),
+        path.resolve('./src/assets/logo.png'),
+      ];
+
+      for (const logoPath of logoPaths) {
+        try {
+          if (fs.existsSync(logoPath)) {
+            doc.image(logoPath, margin, 15, { width: 60 });
+            logoLoaded = true;
+            console.log('✅ Logo carregada de:', logoPath);
+            break;
+          }
+        } catch (err) {
+          // continua tentando
         }
-      } catch {
-        // Logo não encontrada
       }
 
-      const titleX = logoLoaded ? margin + 70 : margin;
+      if (!logoLoaded) {
+        console.log('⚠️ Logo não encontrada em nenhum caminho');
+      }
+
+      // ============================================
+      // TÍTULOS CENTRALIZADOS
+      // ============================================
+
       const titleY = logoLoaded ? 18 : 20;
 
       doc.fontSize(14)
          .font('Helvetica-Bold')
          .fillColor(cores.primariaEscura)
-         .text('SECRETARIA MUNICIPAL DE SAÚDE', titleX, titleY, { align: 'left' });
+         .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, titleY, { align: 'center' });
 
       doc.fontSize(12)
          .font('Helvetica-Bold')
          .fillColor(cores.primaria)
-         .text('SETOR DE ENDEMIAS', titleX, titleY + 20, { align: 'left' });
+         .text('SETOR DE ENDEMIAS', 0, titleY + 20, { align: 'center' });
 
       const lineY = 55;
       doc.moveTo(margin, lineY)
@@ -268,7 +285,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       });
 
       // ============================================
-      // RODAPÉ
+      // RODAPÉ (CENTRALIZADO)
       // ============================================
 
       y += 10;
@@ -424,27 +441,50 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
       const pageWidth = doc.page.width;
       const pageHeight = doc.page.height;
 
+      // ============================================
+      // LOGO - TESTA VÁRIOS CAMINHOS
+      // ============================================
+      
       let logoLoaded = false;
-      try {
-        const logoPath = path.join(process.cwd(), 'src', 'assets', 'logo.png');
-        if (fs.existsSync(logoPath)) {
-          doc.image(logoPath, margin, 15, { width: 55 });
-          logoLoaded = true;
-        }
-      } catch {}
+      const logoPaths = [
+        path.join(process.cwd(), 'src', 'assets', 'logo.png'),
+        path.join(__dirname, '..', 'assets', 'logo.png'),
+        path.join(process.cwd(), 'assets', 'logo.png'),
+        path.resolve('./src/assets/logo.png'),
+      ];
 
-      const titleX = logoLoaded ? margin + 70 : margin;
+      for (const logoPath of logoPaths) {
+        try {
+          if (fs.existsSync(logoPath)) {
+            doc.image(logoPath, margin, 15, { width: 60 });
+            logoLoaded = true;
+            console.log('✅ Logo carregada de:', logoPath);
+            break;
+          }
+        } catch (err) {
+          // continua tentando
+        }
+      }
+
+      if (!logoLoaded) {
+        console.log('⚠️ Logo não encontrada em nenhum caminho');
+      }
+
+      // ============================================
+      // TÍTULOS CENTRALIZADOS
+      // ============================================
+
       const titleY = logoLoaded ? 18 : 20;
 
       doc.fontSize(14)
          .font('Helvetica-Bold')
          .fillColor(cores.primariaEscura)
-         .text('SECRETARIA MUNICIPAL DE SAÚDE', titleX, titleY, { align: 'left' });
+         .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, titleY, { align: 'center' });
 
       doc.fontSize(12)
          .font('Helvetica-Bold')
          .fillColor(cores.primaria)
-         .text('SETOR DE ENDEMIAS', titleX, titleY + 20, { align: 'left' });
+         .text('SETOR DE ENDEMIAS', 0, titleY + 20, { align: 'center' });
 
       const lineY = 55;
       doc.moveTo(margin, lineY)
@@ -452,6 +492,10 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
          .strokeColor(cores.primaria)
          .lineWidth(1.5)
          .stroke();
+
+      // ============================================
+      // TÍTULO DO RELATÓRIO (CENTRALIZADO)
+      // ============================================
 
       doc.moveDown(0.8);
       doc.fontSize(16)
@@ -466,6 +510,10 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
          .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
 
       doc.moveDown(0.5);
+
+      // ============================================
+      // TABELA
+      // ============================================
 
       if (!pacientes || pacientes.length === 0) {
         doc.fontSize(14)
@@ -537,6 +585,7 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
       };
 
       y = drawTableHeader(y);
+      
       const maxY = pageHeight - margin - 60;
 
       pacientes.forEach((p, index) => {
@@ -565,6 +614,10 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
 
         y = drawTableRow(rowData, y, index % 2 === 0);
       });
+
+      // ============================================
+      // RODAPÉ (CENTRALIZADO)
+      // ============================================
 
       y += 10;
       doc.moveTo(margin, y)
