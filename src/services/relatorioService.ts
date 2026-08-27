@@ -102,50 +102,73 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             // ============================================
             const cores = {
                 primaria: '#0066b3',
-                primariaClara: '#e8f4fd',
+                primariaClara: '#e6f0fa',
                 primariaEscura: '#004d8c',
-                cinzaClaro: '#f8f9fa',
-                cinzaBorda: '#dee2e6',
-                texto: '#1a1a2e',
-                textoClaro: '#6c757d',
-                branco: '#ffffff',
-                verde: '#28a745',
-                vermelho: '#dc3545',
-                amarelo: '#ffc107'
+                cinzaClaro: '#f5f6fa',
+                cinzaBorda: '#dcdde1',
+                texto: '#2d3436',
+                textoClaro: '#636e72',
+                branco: '#ffffff'
             };
 
             // ============================================
             // CABEÇALHO COM LOGO
             // ============================================
 
-            const pageWidth = doc.page.width;
             const margin = 50;
+            const pageWidth = doc.page.width;
 
-            // 🔥 LOGO - Ajuste o caminho conforme sua logo
-            const logoPath = path.join(__dirname, '..', 'assets', 'logo.png');
-            console.log('📄 Buscando logo em:', logoPath);
+            // 🔥 LOGO - VÁRIAS TENTATIVAS DE CARREGAR
+            let logoLoaded = false;
 
-            if (fs.existsSync(logoPath)) {
-                console.log('✅ Logo encontrada!');
-                doc.image(logoPath, margin, 30, { width: 70 });
-            } else {
-                console.log('⚠️ Logo não encontrada em:', logoPath);
+            // Tentativa 1: Caminho relativo ao arquivo atual
+            const logoPath1 = path.join(__dirname, '..', 'assets', 'logo.png');
+            console.log('📄 Tentando logo em:', logoPath1);
+
+            if (fs.existsSync(logoPath1)) {
+                try {
+                    doc.image(logoPath1, margin, 25, { width: 70 });
+                    logoLoaded = true;
+                    console.log('✅ Logo carregada de:', logoPath1);
+                } catch (err) {
+                    console.log('⚠️ Erro ao carregar logo 1:', err);
+                }
             }
 
-            // Cabeçalho - alinhado à direita da logo
-            const headerX = margin + 90;
+            // Tentativa 2: Caminho absoluto (se a primeira falhar)
+            if (!logoLoaded) {
+                const logoPath2 = path.join(process.cwd(), 'src', 'assets', 'logo.png');
+                console.log('📄 Tentando logo em:', logoPath2);
+
+                if (fs.existsSync(logoPath2)) {
+                    try {
+                        doc.image(logoPath2, margin, 25, { width: 70 });
+                        logoLoaded = true;
+                        console.log('✅ Logo carregada de:', logoPath2);
+                    } catch (err) {
+                        console.log('⚠️ Erro ao carregar logo 2:', err);
+                    }
+                }
+            }
+
+            if (!logoLoaded) {
+                console.log('⚠️ Logo não encontrada em nenhum caminho!');
+            }
+
+            // Título centralizado (com ajuste se a logo existir)
+            const titleY = logoLoaded ? 25 : 30;
+
+            doc.fontSize(16)
+                .font('Helvetica-Bold')
+                .fillColor(cores.primariaEscura)
+                .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, titleY, { align: 'center' });
 
             doc.fontSize(14)
                 .font('Helvetica-Bold')
-                .fillColor(cores.primariaEscura)
-                .text('SECRETARIA MUNICIPAL DE SAÚDE', headerX, 30, { align: 'left' });
-
-            doc.fontSize(12)
-                .font('Helvetica-Bold')
                 .fillColor(cores.primaria)
-                .text('SETOR DE ENDEMIAS', headerX, 50, { align: 'left' });
+                .text('SETOR DE ENDEMIAS', 0, titleY + 20, { align: 'center' });
 
-            doc.moveDown(0.5);
+            doc.moveDown(1);
 
             // Linha separadora
             doc.moveTo(margin, 85)
@@ -154,11 +177,9 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 .lineWidth(2)
                 .stroke();
 
-            // ============================================
-            // TÍTULO DO RELATÓRIO
-            // ============================================
-
             doc.moveDown(1);
+
+            // Título do relatório
             doc.fontSize(20)
                 .font('Helvetica-Bold')
                 .fillColor(cores.texto)
@@ -166,7 +187,6 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
             doc.moveDown(0.3);
 
-            // Informações do relatório
             doc.fontSize(10)
                 .font('Helvetica')
                 .fillColor(cores.textoClaro)
@@ -175,18 +195,17 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             doc.moveDown(1);
 
             // ============================================
-            // TABELA
+            // TABELA COM CORES
             // ============================================
 
             if (!pacientes || pacientes.length === 0) {
                 doc.fontSize(14)
                     .fillColor(cores.textoClaro)
-                    .text('Nenhum dado encontrado para os filtros selecionados.', { align: 'center' });
+                    .text('Nenhum dado encontrado.', { align: 'center' });
                 doc.end();
                 return;
             }
 
-            // Configuração da tabela
             const startX = margin;
             let y = doc.y;
             const tableWidth = pageWidth - (margin * 2);
@@ -194,37 +213,37 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
             const colunas = [
                 { header: 'NOME', width: 0.18 },
                 { header: 'ANO', width: 0.06 },
-                { header: 'PSF', width: 0.14 },
-                { header: 'LOCALIDADE', width: 0.14 },
+                { header: 'PSF', width: 0.15 },
+                { header: 'LOCALIDADE', width: 0.15 },
                 { header: 'QUART.', width: 0.07 },
                 { header: 'Nº IMÓVEL', width: 0.08 },
                 { header: 'ENT. DOC', width: 0.07 },
                 { header: 'ENT. MED', width: 0.07 },
-                { header: 'DATA TRAT', width: 0.10 },
-                { header: 'REVISÃO', width: 0.09 },
+                { header: 'DATA TRAT', width: 0.09 },
+                { header: 'REVISÃO', width: 0.08 },
             ];
 
-            // Calcular largura de cada coluna
             colunas.forEach(col => col.width = col.width * tableWidth);
 
-            // Cabeçalho da tabela
+            // Cabeçalho com fundo azul
             const drawTableHeader = (yPos: number) => {
                 let x = startX;
 
-                // Fundo do cabeçalho
-                doc.roundedRect(startX, yPos - 5, tableWidth, 28, 3)
+                doc.rect(startX, yPos - 5, tableWidth, 28)
                     .fill(cores.primaria);
+
+                doc.rect(startX, yPos + 23, tableWidth, 1)
+                    .fill(cores.primariaEscura);
 
                 doc.font('Helvetica-Bold')
                     .fontSize(9)
                     .fillColor(cores.branco);
 
                 colunas.forEach((col) => {
-                    doc.text(col.header, x, yPos + 2, {
+                    doc.text(col.header, x, yPos + 3, {
                         width: col.width,
                         align: 'center',
-                        ellipsis: true,
-                        lineBreak: false
+                        ellipsis: true
                     });
                     x += col.width;
                 });
@@ -232,15 +251,17 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                 return yPos + 28;
             };
 
-            // Linha da tabela
+            // Linhas com cores alternadas
             const drawTableRow = (rowData: string[], yPos: number, isAlternate: boolean) => {
                 let x = startX;
 
-                // Fundo da linha
                 if (isAlternate) {
-                    doc.roundedRect(startX, yPos - 3, tableWidth, 22, 2)
+                    doc.rect(startX, yPos - 3, tableWidth, 24)
                         .fill(cores.primariaClara);
                 }
+
+                doc.rect(startX, yPos + 21, tableWidth, 0.5)
+                    .fill(cores.cinzaBorda);
 
                 doc.font('Helvetica')
                     .fontSize(8)
@@ -250,27 +271,22 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                     doc.text(text, x, yPos + 1, {
                         width: colunas[index].width,
                         align: 'center',
-                        ellipsis: true,
-                        lineBreak: false
+                        ellipsis: true
                     });
                     x += colunas[index].width;
                 });
 
-                return yPos + 22;
+                return yPos + 24;
             };
 
-            // Desenhar cabeçalho
             y = drawTableHeader(y);
 
-            // Desenhar linhas
             pacientes.forEach((p, index) => {
                 if (y > 720) {
                     doc.addPage();
                     y = 50;
                     y = drawTableHeader(y);
                 }
-
-                const revisao = p.revisao === 'S' ? 'Sim' : 'Não';
 
                 const rowData = [
                     p.nome || '',
@@ -282,7 +298,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
                     p.entrega_documento === 'S' ? 'S' : 'N',
                     p.entrega_medicamento === 'S' ? 'S' : 'N',
                     p.data_tratamento ? new Date(p.data_tratamento).toLocaleDateString('pt-BR') : '',
-                    revisao
+                    p.revisao === 'S' ? 'Sim' : 'Não'
                 ];
 
                 y = drawTableRow(rowData, y, index % 2 === 0);
@@ -294,7 +310,6 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
             y += 10;
 
-            // Linha separadora
             doc.moveTo(margin, y)
                 .lineTo(pageWidth - margin, y)
                 .strokeColor(cores.cinzaBorda)
@@ -303,19 +318,17 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
             y += 10;
 
-            // Total de registros
             doc.fontSize(9)
                 .font('Helvetica-Bold')
                 .fillColor(cores.texto)
                 .text(`Total de registros: ${pacientes.length}`, margin, y, { align: 'left' });
 
-            // Informações do sistema
             doc.fontSize(8)
                 .font('Helvetica')
                 .fillColor(cores.textoClaro)
-                .text(`Sistema de Controle de Tratamento - Setor de Endemias`, 0, y, { align: 'right' });
+                .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, y, { align: 'right' });
 
-            // Rodapé na última página
+            // Numeração de páginas
             const totalPages = doc.bufferedPageRange().count;
             for (let i = 0; i < totalPages; i++) {
                 doc.switchToPage(i);
