@@ -3,7 +3,10 @@ import {
     relatorioRedeBasicaCSV,
     relatorioRedeBasicaExcel,
     relatorioRedeBasicaPDF,
-    relatorioRotinaCSV
+    relatorioRotinaCSV,
+    relatorioRotinaExcel,
+    relatorioRotinaPDF
+
 } from '../controllers/relatorioController';
 import { authenticate } from '../middlewares/auth';
 
@@ -19,5 +22,7 @@ router.get('/rede-basica/pdf', relatorioRedeBasicaPDF);
 
 // Relatórios Rotina
 router.get('/rotina/csv', relatorioRotinaCSV);
+router.get('/rotina/excel', relatorioRotinaExcel);
+router.get('/rotina/pdf', relatorioRotinaPDF);
 
 export default router;
