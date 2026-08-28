@@ -117,7 +117,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       // ============================================
       // LOGO - TESTA VÁRIOS CAMINHOS
       // ============================================
-      
+
       let logoLoaded = false;
       const logoPaths = [
         path.join(process.cwd(), 'src', 'assets', 'logo.png'),
@@ -150,14 +150,14 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       const titleY = logoLoaded ? 22 : 25;
 
       doc.fontSize(14)
-         .font('Helvetica-Bold')
-         .fillColor(cores.primariaEscura)
-         .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, titleY, { align: 'center' });
+        .font('Helvetica-Bold')
+        .fillColor(cores.primariaEscura)
+        .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, titleY, { align: 'center' });
 
       doc.fontSize(12)
-         .font('Helvetica-Bold')
-         .fillColor(cores.primaria)
-         .text('SETOR DE ENDEMIAS', 0, titleY + 22, { align: 'center' });
+        .font('Helvetica-Bold')
+        .fillColor(cores.primaria)
+        .text('SETOR DE ENDEMIAS', 0, titleY + 22, { align: 'center' });
 
       // ============================================
       // LINHA SEPARADORA
@@ -165,10 +165,10 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
       const lineY = titleY + 52;
       doc.moveTo(margin, lineY)
-         .lineTo(pageWidth - margin, lineY)
-         .strokeColor(cores.primaria)
-         .lineWidth(1.5)
-         .stroke();
+        .lineTo(pageWidth - margin, lineY)
+        .strokeColor(cores.primaria)
+        .lineWidth(1.5)
+        .stroke();
 
       // ============================================
       // TÍTULO DO RELATÓRIO
@@ -176,15 +176,15 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
       doc.moveDown(2.0);
       doc.fontSize(16)
-         .font('Helvetica-Bold')
-         .fillColor(cores.texto)
-         .text('RELATÓRIO - REDE BÁSICA', { align: 'center' });
+        .font('Helvetica-Bold')
+        .fillColor(cores.texto)
+        .text('RELATÓRIO - REDE BÁSICA', { align: 'center' });
 
       doc.moveDown(0.3);
       doc.fontSize(9)
-         .font('Helvetica')
-         .fillColor(cores.textoClaro)
-         .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
+        .font('Helvetica')
+        .fillColor(cores.textoClaro)
+        .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
 
       doc.moveDown(0.8);
 
@@ -194,8 +194,8 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
       if (!pacientes || pacientes.length === 0) {
         doc.fontSize(14)
-           .fillColor(cores.textoClaro)
-           .text('Nenhum dado encontrado.', { align: 'center' });
+          .fillColor(cores.textoClaro)
+          .text('Nenhum dado encontrado.', { align: 'center' });
         doc.end();
         return;
       }
@@ -205,18 +205,19 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       const tableWidth = pageWidth - (margin * 2);
 
       const colunas = [
-        { header: 'NOME', width: 0.14 },
+        { header: 'NOME', width: 0.16 },        
         { header: 'ANO', width: 0.05 },
-        { header: 'PSF', width: 0.12 },
-        { header: 'LOCALIDADE', width: 0.12 },
-        { header: 'QUART.', width: 0.06 },
-        { header: 'Nº IMÓVEL', width: 0.07 },
-        { header: 'ENT. DOC', width: 0.06 },
-        { header: 'ENT. MED', width: 0.06 },
+        { header: 'PSF', width: 0.14 },         
+        { header: 'LOCALIDADE', width: 0.14 },  
+        { header: 'QUART.', width: 0.05 },      
+        { header: 'Nº IMÓVEL', width: 0.05 },   
+        { header: 'ENT. RES.', width: 0.05 },   
+        { header: 'ENT. DOC', width: 0.05 },    
+        { header: 'ENT. MED', width: 0.05 },    
         { header: 'DATA TRAT', width: 0.08 },
         { header: 'DATA REVISÃO', width: 0.08 },
         { header: 'REVISÃO', width: 0.06 },
-        { header: 'TELEFONE', width: 0.10 },
+        { header: 'TELEFONE', width: 0.09 },
       ];
 
       colunas.forEach(col => col.width = col.width * tableWidth);
@@ -224,10 +225,10 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       const drawTableHeader = (yPos: number) => {
         let x = startX;
         doc.rect(startX, yPos - 4, tableWidth, 24)
-           .fill(cores.primaria);
+          .fill(cores.primaria);
         doc.font('Helvetica-Bold')
-           .fontSize(8)
-           .fillColor(cores.branco);
+          .fontSize(8)
+          .fillColor(cores.branco);
         colunas.forEach((col) => {
           doc.text(col.header, x, yPos + 1, {
             width: col.width,
@@ -243,11 +244,11 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
         let x = startX;
         if (isAlternate) {
           doc.rect(startX, yPos - 2, tableWidth, 20)
-             .fill(cores.primariaClara);
+            .fill(cores.primariaClara);
         }
         doc.font('Helvetica')
-           .fontSize(7.5)
-           .fillColor(cores.texto);
+          .fontSize(7.5)
+          .fillColor(cores.texto);
         rowData.forEach((text, index) => {
           doc.text(text, x, yPos, {
             width: colunas[index].width,
@@ -260,7 +261,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       };
 
       y = drawTableHeader(y);
-      
+
       const maxY = pageHeight - margin - 60;
 
       let pageCount = 1;
@@ -296,36 +297,36 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
 
       y += 10;
       doc.moveTo(margin, y)
-         .lineTo(pageWidth - margin, y)
-         .strokeColor(cores.cinzaBorda)
-         .lineWidth(0.5)
-         .stroke();
+        .lineTo(pageWidth - margin, y)
+        .strokeColor(cores.cinzaBorda)
+        .lineWidth(0.5)
+        .stroke();
 
       y += 10;
       doc.fontSize(9)
-         .font('Helvetica-Bold')
-         .fillColor(cores.texto)
-         .text(`Total de registros: ${pacientes.length}`, 0, y, { align: 'center' });
+        .font('Helvetica-Bold')
+        .fillColor(cores.texto)
+        .text(`Total de registros: ${pacientes.length}`, 0, y, { align: 'center' });
 
       doc.moveDown(0.3);
       doc.fontSize(8)
-         .font('Helvetica')
-         .fillColor(cores.textoClaro)
-         .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, doc.y, { align: 'center' });
+        .font('Helvetica')
+        .fillColor(cores.textoClaro)
+        .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, doc.y, { align: 'center' });
 
       // ============================================
       // NUMERAÇÃO DE PÁGINAS (SÓ SE TIVER MAIS DE 1)
       // ============================================
 
       const totalPages = doc.bufferedPageRange().count;
-      
+
       // 🔥 SÓ ADICIONA NUMERAÇÃO SE TIVER MAIS DE UMA PÁGINA
       if (totalPages > 1) {
         for (let i = 0; i < totalPages; i++) {
           doc.switchToPage(i);
           doc.fontSize(7)
-             .fillColor(cores.textoClaro)
-             .text(`Página ${i + 1} de ${totalPages}`, 0, doc.page.height - 20, { align: 'center' });
+            .fillColor(cores.textoClaro)
+            .text(`Página ${i + 1} de ${totalPages}`, 0, doc.page.height - 20, { align: 'center' });
         }
       }
 
@@ -458,7 +459,7 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
       // ============================================
       // LOGO - TESTA VÁRIOS CAMINHOS
       // ============================================
-      
+
       let logoLoaded = false;
       const logoPaths = [
         path.join(process.cwd(), 'src', 'assets', 'logo.png'),
@@ -491,14 +492,14 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
       const titleY = logoLoaded ? 22 : 25;
 
       doc.fontSize(14)
-         .font('Helvetica-Bold')
-         .fillColor(cores.primariaEscura)
-         .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, titleY, { align: 'center' });
+        .font('Helvetica-Bold')
+        .fillColor(cores.primariaEscura)
+        .text('SECRETARIA MUNICIPAL DE SAÚDE', 0, titleY, { align: 'center' });
 
       doc.fontSize(12)
-         .font('Helvetica-Bold')
-         .fillColor(cores.primaria)
-         .text('SETOR DE ENDEMIAS', 0, titleY + 22, { align: 'center' });
+        .font('Helvetica-Bold')
+        .fillColor(cores.primaria)
+        .text('SETOR DE ENDEMIAS', 0, titleY + 22, { align: 'center' });
 
       // ============================================
       // LINHA SEPARADORA
@@ -506,10 +507,10 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
 
       const lineY = titleY + 52;
       doc.moveTo(margin, lineY)
-         .lineTo(pageWidth - margin, lineY)
-         .strokeColor(cores.primaria)
-         .lineWidth(1.5)
-         .stroke();
+        .lineTo(pageWidth - margin, lineY)
+        .strokeColor(cores.primaria)
+        .lineWidth(1.5)
+        .stroke();
 
       // ============================================
       // TÍTULO DO RELATÓRIO
@@ -517,15 +518,15 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
 
       doc.moveDown(2.0);
       doc.fontSize(16)
-         .font('Helvetica-Bold')
-         .fillColor(cores.texto)
-         .text('RELATÓRIO - ROTINA', { align: 'center' });
+        .font('Helvetica-Bold')
+        .fillColor(cores.texto)
+        .text('RELATÓRIO - ROTINA', { align: 'center' });
 
       doc.moveDown(0.3);
       doc.fontSize(9)
-         .font('Helvetica')
-         .fillColor(cores.textoClaro)
-         .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
+        .font('Helvetica')
+        .fillColor(cores.textoClaro)
+        .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
 
       doc.moveDown(0.8);
 
@@ -535,8 +536,8 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
 
       if (!pacientes || pacientes.length === 0) {
         doc.fontSize(14)
-           .fillColor(cores.textoClaro)
-           .text('Nenhum dado encontrado.', { align: 'center' });
+          .fillColor(cores.textoClaro)
+          .text('Nenhum dado encontrado.', { align: 'center' });
         doc.end();
         return;
       }
@@ -567,10 +568,10 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
       const drawTableHeader = (yPos: number) => {
         let x = startX;
         doc.rect(startX, yPos - 4, tableWidth, 24)
-           .fill(cores.primaria);
+          .fill(cores.primaria);
         doc.font('Helvetica-Bold')
-           .fontSize(7.5)
-           .fillColor(cores.branco);
+          .fontSize(7.5)
+          .fillColor(cores.branco);
         colunas.forEach((col) => {
           doc.text(col.header, x, yPos + 1, {
             width: col.width,
@@ -586,11 +587,11 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
         let x = startX;
         if (isAlternate) {
           doc.rect(startX, yPos - 2, tableWidth, 20)
-             .fill(cores.primariaClara);
+            .fill(cores.primariaClara);
         }
         doc.font('Helvetica')
-           .fontSize(7)
-           .fillColor(cores.texto);
+          .fontSize(7)
+          .fillColor(cores.texto);
         rowData.forEach((text, index) => {
           doc.text(text, x, yPos, {
             width: colunas[index].width,
@@ -603,7 +604,7 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
       };
 
       y = drawTableHeader(y);
-      
+
       const maxY = pageHeight - margin - 60;
 
       pacientes.forEach((p, index) => {
@@ -639,35 +640,35 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
 
       y += 10;
       doc.moveTo(margin, y)
-         .lineTo(pageWidth - margin, y)
-         .strokeColor(cores.cinzaBorda)
-         .lineWidth(0.5)
-         .stroke();
+        .lineTo(pageWidth - margin, y)
+        .strokeColor(cores.cinzaBorda)
+        .lineWidth(0.5)
+        .stroke();
 
       y += 10;
       doc.fontSize(9)
-         .font('Helvetica-Bold')
-         .fillColor(cores.texto)
-         .text(`Total de registros: ${pacientes.length}`, 0, y, { align: 'center' });
+        .font('Helvetica-Bold')
+        .fillColor(cores.texto)
+        .text(`Total de registros: ${pacientes.length}`, 0, y, { align: 'center' });
 
       doc.moveDown(0.3);
       doc.fontSize(8)
-         .font('Helvetica')
-         .fillColor(cores.textoClaro)
-         .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, doc.y, { align: 'center' });
+        .font('Helvetica')
+        .fillColor(cores.textoClaro)
+        .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, doc.y, { align: 'center' });
 
       // ============================================
       // NUMERAÇÃO DE PÁGINAS (SÓ SE TIVER MAIS DE 1)
       // ============================================
 
       const totalPages = doc.bufferedPageRange().count;
-      
+
       if (totalPages > 1) {
         for (let i = 0; i < totalPages; i++) {
           doc.switchToPage(i);
           doc.fontSize(7)
-             .fillColor(cores.textoClaro)
-             .text(`Página ${i + 1} de ${totalPages}`, 0, doc.page.height - 20, { align: 'center' });
+            .fillColor(cores.textoClaro)
+            .text(`Página ${i + 1} de ${totalPages}`, 0, doc.page.height - 20, { align: 'center' });
         }
       }
 
