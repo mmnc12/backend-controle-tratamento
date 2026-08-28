@@ -144,11 +144,10 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       }
 
       // ============================================
-      // TÍTULOS CENTRALIZADOS (COM MAIS ESPAÇO)
+      // TÍTULOS CENTRALIZADOS
       // ============================================
 
-      // 🔥 AUMENTEI O ESPAÇO ENTRE A LOGO E OS TÍTULOS
-      const titleY = logoLoaded ? 22 : 25; // ANTES ERA 18
+      const titleY = logoLoaded ? 22 : 25;
 
       doc.fontSize(14)
          .font('Helvetica-Bold')
@@ -158,14 +157,13 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       doc.fontSize(12)
          .font('Helvetica-Bold')
          .fillColor(cores.primaria)
-         .text('SETOR DE ENDEMIAS', 0, titleY + 22, { align: 'center' }); // ANTES ERA +20
+         .text('SETOR DE ENDEMIAS', 0, titleY + 22, { align: 'center' });
 
       // ============================================
-      // LINHA SEPARADORA (COM MAIS ESPAÇO)
+      // LINHA SEPARADORA
       // ============================================
 
-      // 🔥 AUMENTEI O ESPAÇO ANTES DA LINHA
-      const lineY = titleY + 52; // ANTES ERA 55 (agora está mais para baixo)
+      const lineY = titleY + 52;
       doc.moveTo(margin, lineY)
          .lineTo(pageWidth - margin, lineY)
          .strokeColor(cores.primaria)
@@ -173,11 +171,11 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
          .stroke();
 
       // ============================================
-      // TÍTULO DO RELATÓRIO (CENTRALIZADO)
+      // TÍTULO DO RELATÓRIO (COM MAIS ESPAÇO)
       // ============================================
 
-      // 🔥 AUMENTEI O ESPAÇO DEPOIS DA LINHA
-      doc.moveDown(1.2); // ANTES ERA 0.8
+      // 🔥 AUMENTEI O ESPAÇO ENTRE A LINHA E O TÍTULO
+      doc.moveDown(2.0); // ANTES ERA 1.2
       doc.fontSize(16)
          .font('Helvetica-Bold')
          .fillColor(cores.texto)
@@ -189,7 +187,7 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
          .fillColor(cores.textoClaro)
          .text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, { align: 'center' });
 
-      doc.moveDown(0.8); // ANTES ERA 0.5
+      doc.moveDown(0.8);
 
       // ============================================
       // TABELA
@@ -478,7 +476,7 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
       }
 
       // ============================================
-      // TÍTULOS CENTRALIZADOS (COM MAIS ESPAÇO)
+      // TÍTULOS CENTRALIZADOS
       // ============================================
 
       const titleY = logoLoaded ? 22 : 25;
@@ -494,7 +492,7 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
          .text('SETOR DE ENDEMIAS', 0, titleY + 22, { align: 'center' });
 
       // ============================================
-      // LINHA SEPARADORA (COM MAIS ESPAÇO)
+      // LINHA SEPARADORA
       // ============================================
 
       const lineY = titleY + 52;
@@ -505,10 +503,10 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
          .stroke();
 
       // ============================================
-      // TÍTULO DO RELATÓRIO (CENTRALIZADO)
+      // TÍTULO DO RELATÓRIO (COM MAIS ESPAÇO)
       // ============================================
 
-      doc.moveDown(1.2);
+      doc.moveDown(2.0);
       doc.fontSize(16)
          .font('Helvetica-Bold')
          .fillColor(cores.texto)
