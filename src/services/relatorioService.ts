@@ -171,11 +171,10 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
          .stroke();
 
       // ============================================
-      // TÍTULO DO RELATÓRIO (COM MAIS ESPAÇO)
+      // TÍTULO DO RELATÓRIO
       // ============================================
 
-      // 🔥 AUMENTEI O ESPAÇO ENTRE A LINHA E O TÍTULO
-      doc.moveDown(2.0); // ANTES ERA 1.2
+      doc.moveDown(2.0);
       doc.fontSize(16)
          .font('Helvetica-Bold')
          .fillColor(cores.texto)
@@ -264,9 +263,11 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
       
       const maxY = pageHeight - margin - 60;
 
+      let pageCount = 1;
       pacientes.forEach((p, index) => {
         if (y > maxY && index < pacientes.length - 1) {
           doc.addPage();
+          pageCount++;
           y = 50;
           y = drawTableHeader(y);
         }
@@ -312,12 +313,20 @@ export const gerarPDFRedeBasica = async (pacientes: any[]): Promise<Buffer> => {
          .fillColor(cores.textoClaro)
          .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, doc.y, { align: 'center' });
 
+      // ============================================
+      // NUMERAÇÃO DE PÁGINAS (SÓ SE TIVER MAIS DE 1)
+      // ============================================
+
       const totalPages = doc.bufferedPageRange().count;
-      for (let i = 0; i < totalPages; i++) {
-        doc.switchToPage(i);
-        doc.fontSize(7)
-           .fillColor(cores.textoClaro)
-           .text(`Página ${i + 1} de ${totalPages}`, 0, doc.page.height - 20, { align: 'center' });
+      
+      // 🔥 SÓ ADICIONA NUMERAÇÃO SE TIVER MAIS DE UMA PÁGINA
+      if (totalPages > 1) {
+        for (let i = 0; i < totalPages; i++) {
+          doc.switchToPage(i);
+          doc.fontSize(7)
+             .fillColor(cores.textoClaro)
+             .text(`Página ${i + 1} de ${totalPages}`, 0, doc.page.height - 20, { align: 'center' });
+        }
       }
 
       doc.end();
@@ -503,7 +512,7 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
          .stroke();
 
       // ============================================
-      // TÍTULO DO RELATÓRIO (COM MAIS ESPAÇO)
+      // TÍTULO DO RELATÓRIO
       // ============================================
 
       doc.moveDown(2.0);
@@ -647,12 +656,19 @@ export const gerarPDFRotina = async (pacientes: any[]): Promise<Buffer> => {
          .fillColor(cores.textoClaro)
          .text('Sistema de Controle de Tratamento - Setor de Endemias', 0, doc.y, { align: 'center' });
 
+      // ============================================
+      // NUMERAÇÃO DE PÁGINAS (SÓ SE TIVER MAIS DE 1)
+      // ============================================
+
       const totalPages = doc.bufferedPageRange().count;
-      for (let i = 0; i < totalPages; i++) {
-        doc.switchToPage(i);
-        doc.fontSize(7)
-           .fillColor(cores.textoClaro)
-           .text(`Página ${i + 1} de ${totalPages}`, 0, doc.page.height - 20, { align: 'center' });
+      
+      if (totalPages > 1) {
+        for (let i = 0; i < totalPages; i++) {
+          doc.switchToPage(i);
+          doc.fontSize(7)
+             .fillColor(cores.textoClaro)
+             .text(`Página ${i + 1} de ${totalPages}`, 0, doc.page.height - 20, { align: 'center' });
+        }
       }
 
       doc.end();
