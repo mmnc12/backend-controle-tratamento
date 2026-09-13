@@ -1,5 +1,80 @@
+// src/controllers/rotinaController.ts
+
 import { Request, Response } from 'express';
 import { query, queryOne, execute } from '../config/database';
+
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
+
+/**
+ * Calcula o status da revisão:
+ * - 'feita'     → tem data_revisao preenchida
+ * - 'pendente'  → passou dos 40 dias sem data_revisao
+ * - 'no_prazo'  → dentro dos 40 dias sem data_revisao
+ * - null        → não tem data_tratamento
+ */
+const calcularStatusRevisao = (
+    dataTratamento: string | Date | null | undefined,
+    dataRevisao: string | Date | null | undefined
+): 'feita' | 'pendente' | 'no_prazo' | null => {
+    // Se tem data de revisão = feita
+    if (dataRevisao) {
+        return 'feita';
+    }
+
+    // Se não tem data de tratamento, não tem como calcular
+    if (!dataTratamento) {
+        return null;
+    }
+
+    // Calcular data limite (tratamento + 40 dias)
+    const dataTrat = new Date(dataTratamento);
+    const dataLimite = new Date(dataTrat);
+    dataLimite.setDate(dataLimite.getDate() + 40);
+    dataLimite.setHours(0, 0, 0, 0);
+
+    // Data atual (zerando horas)
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    // Se passou do prazo
+    if (hoje > dataLimite) {
+        return 'pendente';
+    }
+
+    return 'no_prazo';
+};
+
+/**
+ * Enriquece um registro com campos calculados (não armazenados):
+ * - tratado: true/false (baseado em data_tratamento)
+ * - status_revisao: 'feita' | 'pendente' | 'no_prazo' | null
+ */
+const enriquecerRegistro = (registro: any): any => {
+    if (!registro) return registro;
+
+    const tratado = Boolean(registro.data_tratamento);
+    const status_revisao = calcularStatusRevisao(
+        registro.data_tratamento,
+        registro.data_revisao
+    );
+
+    return {
+        ...registro,
+        tratado,
+        status_revisao
+    };
+};
+
+/**
+ * Sincroniza o campo `revisao` com base em `data_revisao`:
+ * - Se data_revisao existe → revisao = 'S'
+ * - Se data_revisao é null/vazia → revisao = 'N'
+ */
+const sincronizarRevisao = (dataRevisao: string | Date | null | undefined): 'S' | 'N' => {
+    return dataRevisao ? 'S' : 'N';
+};
 
 // ============================================
 // VALIDAÇÕES DE NEGÓCIO - ROTINA
@@ -11,22 +86,27 @@ const validarRegrasNegocio = (data: any): string | null => {
         return 'Não é possível marcar revisão como feita sem uma data de tratamento';
     }
 
-    // Regra 2: Não pode haver tratamento sem entrega de medicamento
+    // Regra 2: Não pode haver data_revisao sem data_tratamento
+    if (data.data_revisao && !data.data_tratamento) {
+        return 'Não é possível registrar uma data de revisão sem uma data de tratamento';
+    }
+
+    // Regra 3: Não pode haver tratamento sem entrega de medicamento
     if (data.data_tratamento && data.entrega_medicamento !== 'S') {
         return 'Não é possível registrar data de tratamento sem entrega de medicamento';
     }
 
-    // Regra 3: Não pode haver tratamento sem entrega de documento
+    // Regra 4: Não pode haver tratamento sem entrega de documento
     if (data.data_tratamento && data.entrega_documento !== 'S') {
         return 'Não é possível registrar data de tratamento sem entrega de documento';
     }
 
-    // Regra 4: Não pode haver tratamento sem entrega de resultado
+    // Regra 5: Não pode haver tratamento sem entrega de resultado
     if (data.data_tratamento && data.entrega_resultado !== 'S') {
         return 'Não é possível registrar data de tratamento sem entrega de resultado';
     }
 
-    // Regra 5: Não pode haver data de tratamento no futuro
+    // Regra 6: Não pode haver data de tratamento no futuro
     if (data.data_tratamento) {
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
@@ -56,6 +136,7 @@ export const listar = async (req: Request, res: Response) => {
             data_fim,
             tratado,
             revisao,
+            status_revisao,
             numero_amostra,
             page = 1,
             limit = 20
@@ -66,9 +147,9 @@ export const listar = async (req: Request, res: Response) => {
         const offset = (pageNumber - 1) * limitNumber;
 
         let sql = `
-            SELECT r.*, 
-                    l.nome as localidade_nome, 
-                    p.nome as psf_nome 
+            SELECT r.*,
+                    l.nome as localidade_nome,
+                    p.nome as psf_nome
             FROM rotina r
             LEFT JOIN localidades l ON r.localidade_id = l.id
             LEFT JOIN psf p ON r.psf_id = p.id
@@ -146,7 +227,7 @@ export const listar = async (req: Request, res: Response) => {
             }
         }
 
-        // Filtro por revisão
+        // Filtro por revisão (S/N armazenado)
         if (revisao) {
             sql += ` AND r.revisao = ?`;
             countSql += ` AND r.revisao = ?`;
@@ -154,15 +235,29 @@ export const listar = async (req: Request, res: Response) => {
             countParams.push(revisao);
         }
 
+        // Filtro por status_revisao (calculado)
+        // Como é calculado, filtramos em memória depois
+        // (não adicionamos na query SQL)
+
         // Ordenação e paginação
         sql += ` ORDER BY r.id DESC LIMIT ? OFFSET ?`;
         params.push(limitNumber, offset);
 
         // Executar queries
-        const [pacientes, countResult] = await Promise.all([
+        const [pacientesRaw, countResult] = await Promise.all([
             query<any>(sql, params),
             queryOne<any>(countSql, countParams)
         ]);
+
+        // Enriquecer cada registro com campos calculados
+        let pacientes = pacientesRaw.map(enriquecerRegistro);
+
+        // Filtro por status_revisao (feito em memória)
+        if (status_revisao) {
+            pacientes = pacientes.filter(
+                (p: any) => p.status_revisao === status_revisao
+            );
+        }
 
         const total = countResult?.total || 0;
         const totalPages = Math.ceil(total / limitNumber);
@@ -187,7 +282,8 @@ export const listar = async (req: Request, res: Response) => {
                 data_inicio,
                 data_fim,
                 tratado,
-                revisao
+                revisao,
+                status_revisao
             }
         });
     } catch (error) {
@@ -208,9 +304,9 @@ export const buscarPorId = async (req: Request, res: Response) => {
         const { id } = req.params;
 
         const paciente = await queryOne<any>(
-            `SELECT r.*, 
-                    l.nome as localidade_nome, 
-                    p.nome as psf_nome 
+            `SELECT r.*,
+                    l.nome as localidade_nome,
+                    p.nome as psf_nome
              FROM rotina r
              LEFT JOIN localidades l ON r.localidade_id = l.id
              LEFT JOIN psf p ON r.psf_id = p.id
@@ -227,7 +323,7 @@ export const buscarPorId = async (req: Request, res: Response) => {
 
         return res.status(200).json({
             success: true,
-            data: paciente
+            data: enriquecerRegistro(paciente)
         });
     } catch (error) {
         console.error('Erro ao buscar paciente:', error);
@@ -257,6 +353,7 @@ export const criar = async (req: Request, res: Response) => {
             entrega_documento,
             entrega_medicamento,
             data_tratamento,
+            data_revisao,
             revisao,
             telefone,
             observacao
@@ -277,6 +374,7 @@ export const criar = async (req: Request, res: Response) => {
         const erroValidacao = validarRegrasNegocio({
             revisao,
             data_tratamento,
+            data_revisao,
             entrega_medicamento,
             entrega_documento,
             entrega_resultado
@@ -288,6 +386,9 @@ export const criar = async (req: Request, res: Response) => {
                 message: erroValidacao
             });
         }
+
+        // Sincronizar revisao com data_revisao
+        const revisaoSincronizada = sincronizarRevisao(data_revisao);
 
         // Verificar se PSF existe
         const psfExiste = await queryOne<any>(
@@ -328,21 +429,13 @@ export const criar = async (req: Request, res: Response) => {
             });
         }
 
-        // Calcular data_revisao (40 dias após data_tratamento)
-        let data_revisao = null;
-        if (data_tratamento) {
-            const data = new Date(data_tratamento);
-            data.setDate(data.getDate() + 40);
-            data_revisao = data.toISOString().split('T')[0];
-        }
-
-        // Inserir
+        // Inserir (sem calcular data_revisao automaticamente)
         const result = await execute(
-            `INSERT INTO rotina 
-             (ano, nome, numero_amostra, controle, psf_id, localidade_id, 
-              quarteirao, numero_imovel, entrega_resultado, entrega_documento, 
-              entrega_medicamento, data_tratamento, data_revisao, 
-              revisao, telefone, observacao) 
+            `INSERT INTO rotina
+             (ano, nome, numero_amostra, controle, psf_id, localidade_id,
+              quarteirao, numero_imovel, entrega_resultado, entrega_documento,
+              entrega_medicamento, data_tratamento, data_revisao,
+              revisao, telefone, observacao)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 ano,
@@ -357,8 +450,8 @@ export const criar = async (req: Request, res: Response) => {
                 entrega_documento || 'N',
                 entrega_medicamento || 'N',
                 data_tratamento || null,
-                data_revisao,
-                revisao || 'N',
+                data_revisao || null,          // ⚠️ Manual agora
+                revisaoSincronizada,            // ⚠️ Sincronizado
                 telefone || null,
                 observacao || null
             ]
@@ -366,9 +459,9 @@ export const criar = async (req: Request, res: Response) => {
 
         // Buscar o paciente criado
         const novoPaciente = await queryOne<any>(
-            `SELECT r.*, 
-                    l.nome as localidade_nome, 
-                    p.nome as psf_nome 
+            `SELECT r.*,
+                    l.nome as localidade_nome,
+                    p.nome as psf_nome
              FROM rotina r
              LEFT JOIN localidades l ON r.localidade_id = l.id
              LEFT JOIN psf p ON r.psf_id = p.id
@@ -379,7 +472,7 @@ export const criar = async (req: Request, res: Response) => {
         return res.status(201).json({
             success: true,
             message: 'Paciente cadastrado com sucesso',
-            data: novoPaciente
+            data: enriquecerRegistro(novoPaciente)
         });
     } catch (error) {
         console.error('Erro ao criar paciente:', error);
@@ -410,6 +503,7 @@ export const atualizar = async (req: Request, res: Response) => {
             entrega_documento,
             entrega_medicamento,
             data_tratamento,
+            data_revisao,
             revisao,
             telefone,
             observacao
@@ -435,6 +529,7 @@ export const atualizar = async (req: Request, res: Response) => {
         const dadosAtuais = {
             revisao: revisao !== undefined ? revisao : existe.revisao,
             data_tratamento: data_tratamento !== undefined ? data_tratamento : existe.data_tratamento,
+            data_revisao: data_revisao !== undefined ? data_revisao : existe.data_revisao,
             entrega_medicamento: entrega_medicamento !== undefined ? entrega_medicamento : existe.entrega_medicamento,
             entrega_documento: entrega_documento !== undefined ? entrega_documento : existe.entrega_documento,
             entrega_resultado: entrega_resultado !== undefined ? entrega_resultado : existe.entrega_resultado
@@ -494,17 +589,16 @@ export const atualizar = async (req: Request, res: Response) => {
             }
         }
 
-        // Calcular data_revisao (40 dias após data_tratamento)
-        let data_revisao = null;
-        if (data_tratamento) {
-            const data = new Date(data_tratamento);
-            data.setDate(data.getDate() + 40);
-            data_revisao = data.toISOString().split('T')[0];
-        }
+        // Determinar valor final de data_revisao e revisao
+        const dataRevisaoFinal = data_revisao !== undefined
+            ? data_revisao
+            : existe.data_revisao;
+
+        const revisaoSincronizada = sincronizarRevisao(dataRevisaoFinal);
 
         // Atualizar
         await execute(
-            `UPDATE rotina SET 
+            `UPDATE rotina SET
                 ano = ?,
                 nome = ?,
                 numero_amostra = ?,
@@ -535,8 +629,8 @@ export const atualizar = async (req: Request, res: Response) => {
                 entrega_documento || existe.entrega_documento,
                 entrega_medicamento || existe.entrega_medicamento,
                 data_tratamento || existe.data_tratamento,
-                data_revisao || existe.data_revisao,
-                revisao || existe.revisao,
+                dataRevisaoFinal,                // ⚠️ Valor manual
+                revisaoSincronizada,             // ⚠️ Sincronizado
                 telefone !== undefined ? telefone : existe.telefone,
                 observacao !== undefined ? observacao : existe.observacao,
                 id
@@ -545,9 +639,9 @@ export const atualizar = async (req: Request, res: Response) => {
 
         // Buscar o paciente atualizado
         const pacienteAtualizado = await queryOne<any>(
-            `SELECT r.*, 
-                    l.nome as localidade_nome, 
-                    p.nome as psf_nome 
+            `SELECT r.*,
+                    l.nome as localidade_nome,
+                    p.nome as psf_nome
              FROM rotina r
              LEFT JOIN localidades l ON r.localidade_id = l.id
              LEFT JOIN psf p ON r.psf_id = p.id
@@ -558,7 +652,7 @@ export const atualizar = async (req: Request, res: Response) => {
         return res.status(200).json({
             success: true,
             message: 'Paciente atualizado com sucesso',
-            data: pacienteAtualizado
+            data: enriquecerRegistro(pacienteAtualizado)
         });
     } catch (error) {
         console.error('Erro ao atualizar paciente:', error);
