@@ -1,5 +1,73 @@
+// src/controllers/redeBasicaController.ts
+
 import { Request, Response } from 'express';
 import { query, queryOne, execute } from '../config/database';
+
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
+
+/**
+ * Calcula o status da revisão:
+ * - 'feita'     → tem data_revisao preenchida
+ * - 'pendente'  → passou dos 40 dias sem data_revisao
+ * - 'no_prazo'  → dentro dos 40 dias sem data_revisao
+ * - null        → não tem data_tratamento
+ */
+const calcularStatusRevisao = (
+    dataTratamento: string | Date | null | undefined,
+    dataRevisao: string | Date | null | undefined
+): 'feita' | 'pendente' | 'no_prazo' | null => {
+    if (dataRevisao) {
+        return 'feita';
+    }
+
+    if (!dataTratamento) {
+        return null;
+    }
+
+    const dataTrat = new Date(dataTratamento);
+    const dataLimite = new Date(dataTrat);
+    dataLimite.setDate(dataLimite.getDate() + 40);
+    dataLimite.setHours(0, 0, 0, 0);
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    if (hoje > dataLimite) {
+        return 'pendente';
+    }
+
+    return 'no_prazo';
+};
+
+/**
+ * Enriquece um registro com campos calculados:
+ * - tratado: true/false
+ * - status_revisao: 'feita' | 'pendente' | 'no_prazo' | null
+ */
+const enriquecerRegistro = (registro: any): any => {
+    if (!registro) return registro;
+
+    const tratado = Boolean(registro.data_tratamento);
+    const status_revisao = calcularStatusRevisao(
+        registro.data_tratamento,
+        registro.data_revisao
+    );
+
+    return {
+        ...registro,
+        tratado,
+        status_revisao
+    };
+};
+
+/**
+ * Sincroniza `revisao` com base em `data_revisao`.
+ */
+const sincronizarRevisao = (dataRevisao: string | Date | null | undefined): 'S' | 'N' => {
+    return dataRevisao ? 'S' : 'N';
+};
 
 // ============================================
 // VALIDAÇÕES DE NEGÓCIO - REDE BÁSICA
@@ -11,17 +79,22 @@ const validarRegrasNegocio = (data: any): string | null => {
         return 'Não é possível marcar revisão como feita sem uma data de tratamento';
     }
 
-    // Regra 2: Não pode haver tratamento sem entrega de medicamento
+    // Regra 2: Não pode haver data_revisao sem data_tratamento
+    if (data.data_revisao && !data.data_tratamento) {
+        return 'Não é possível registrar uma data de revisão sem uma data de tratamento';
+    }
+
+    // Regra 3: Não pode haver tratamento sem entrega de medicamento
     if (data.data_tratamento && data.entrega_medicamento !== 'S') {
         return 'Não é possível registrar data de tratamento sem entrega de medicamento';
     }
 
-    // Regra 3: Não pode haver tratamento sem entrega de documento
+    // Regra 4: Não pode haver tratamento sem entrega de documento
     if (data.data_tratamento && data.entrega_documento !== 'S') {
         return 'Não é possível registrar data de tratamento sem entrega de documento';
     }
 
-    // Regra 4: Não pode haver data de tratamento no futuro
+    // Regra 5: Não pode haver data de tratamento no futuro
     if (data.data_tratamento) {
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
@@ -38,7 +111,7 @@ const validarRegrasNegocio = (data: any): string | null => {
 
 // ============================================
 // LISTAR PACIENTES COM FILTROS
-// ============================================ 
+// ============================================
 
 export const listar = async (req: Request, res: Response) => {
     try {
@@ -51,6 +124,7 @@ export const listar = async (req: Request, res: Response) => {
             data_fim,
             tratado,
             revisao,
+            status_revisao,
             page = 1,
             limit = 20
         } = req.query;
@@ -60,9 +134,9 @@ export const listar = async (req: Request, res: Response) => {
         const offset = (pageNumber - 1) * limitNumber;
 
         let sql = `
-            SELECT r.*, 
-                    l.nome as localidade_nome, 
-                    p.nome as psf_nome 
+            SELECT r.*,
+                    l.nome as localidade_nome,
+                    p.nome as psf_nome
             FROM rede_basica r
             LEFT JOIN localidades l ON r.localidade_id = l.id
             LEFT JOIN psf p ON r.psf_id = p.id
@@ -80,15 +154,73 @@ export const listar = async (req: Request, res: Response) => {
             countParams.push(`%${nome}%`);
         }
 
-        // ... resto dos filtros
+        if (localidade_id) {
+            sql += ` AND r.localidade_id = ?`;
+            countSql += ` AND r.localidade_id = ?`;
+            params.push(localidade_id);
+            countParams.push(localidade_id);
+        }
+
+        if (psf_id) {
+            sql += ` AND r.psf_id = ?`;
+            countSql += ` AND r.psf_id = ?`;
+            params.push(psf_id);
+            countParams.push(psf_id);
+        }
+
+        if (ano) {
+            sql += ` AND r.ano = ?`;
+            countSql += ` AND r.ano = ?`;
+            params.push(ano);
+            countParams.push(ano);
+        }
+
+        if (data_inicio) {
+            sql += ` AND r.data_tratamento >= ?`;
+            countSql += ` AND r.data_tratamento >= ?`;
+            params.push(data_inicio);
+            countParams.push(data_inicio);
+        }
+
+        if (data_fim) {
+            sql += ` AND r.data_tratamento <= ?`;
+            countSql += ` AND r.data_tratamento <= ?`;
+            params.push(data_fim);
+            countParams.push(data_fim);
+        }
+
+        if (tratado) {
+            if (tratado === 'S') {
+                sql += ` AND r.data_tratamento IS NOT NULL`;
+                countSql += ` AND r.data_tratamento IS NOT NULL`;
+            } else {
+                sql += ` AND r.data_tratamento IS NULL`;
+                countSql += ` AND r.data_tratamento IS NULL`;
+            }
+        }
+
+        if (revisao) {
+            sql += ` AND r.revisao = ?`;
+            countSql += ` AND r.revisao = ?`;
+            params.push(revisao);
+            countParams.push(revisao);
+        }
 
         sql += ` ORDER BY r.id DESC LIMIT ? OFFSET ?`;
         params.push(limitNumber, offset);
 
-        const [pacientes, countResult] = await Promise.all([
+        const [pacientesRaw, countResult] = await Promise.all([
             query<any>(sql, params),
             queryOne<any>(countSql, countParams)
         ]);
+
+        let pacientes = pacientesRaw.map(enriquecerRegistro);
+
+        if (status_revisao) {
+            pacientes = pacientes.filter(
+                (p: any) => p.status_revisao === status_revisao
+            );
+        }
 
         const total = countResult?.total || 0;
         const totalPages = Math.ceil(total / limitNumber);
@@ -104,7 +236,17 @@ export const listar = async (req: Request, res: Response) => {
                 hasNext: pageNumber < totalPages,
                 hasPrev: pageNumber > 1
             },
-            filters: { nome, localidade_id, psf_id, ano, data_inicio, data_fim, tratado, revisao }
+            filters: {
+                nome,
+                localidade_id,
+                psf_id,
+                ano,
+                data_inicio,
+                data_fim,
+                tratado,
+                revisao,
+                status_revisao
+            }
         });
     } catch (error) {
         console.error('Erro ao listar pacientes:', error);
@@ -124,9 +266,9 @@ export const buscarPorId = async (req: Request, res: Response) => {
         const { id } = req.params;
 
         const paciente = await queryOne<any>(
-            `SELECT r.*, 
-                    l.nome as localidade_nome, 
-                    p.nome as psf_nome 
+            `SELECT r.*,
+                    l.nome as localidade_nome,
+                    p.nome as psf_nome
              FROM rede_basica r
              LEFT JOIN localidades l ON r.localidade_id = l.id
              LEFT JOIN psf p ON r.psf_id = p.id
@@ -143,7 +285,7 @@ export const buscarPorId = async (req: Request, res: Response) => {
 
         return res.status(200).json({
             success: true,
-            data: paciente
+            data: enriquecerRegistro(paciente)
         });
     } catch (error) {
         console.error('Erro ao buscar paciente:', error);
@@ -170,12 +312,12 @@ export const criar = async (req: Request, res: Response) => {
             entrega_documento,
             entrega_medicamento,
             data_tratamento,
+            data_revisao,
             revisao,
             telefone,
             observacao
         } = req.body;
 
-        // Validar campos obrigatórios
         if (!ano || !nome || !psf_id || !localidade_id) {
             return res.status(400).json({
                 error: 'Campos obrigatórios',
@@ -183,13 +325,10 @@ export const criar = async (req: Request, res: Response) => {
             });
         }
 
-        // ============================================
-        // VALIDAR REGRAS DE NEGÓCIO
-        // ============================================
-
         const erroValidacao = validarRegrasNegocio({
             revisao,
             data_tratamento,
+            data_revisao,
             entrega_medicamento,
             entrega_documento
         });
@@ -201,7 +340,8 @@ export const criar = async (req: Request, res: Response) => {
             });
         }
 
-        // Verificar se PSF existe
+        const revisaoSincronizada = sincronizarRevisao(data_revisao);
+
         const psfExiste = await queryOne<any>(
             'SELECT * FROM psf WHERE id = ?',
             [psf_id]
@@ -214,7 +354,6 @@ export const criar = async (req: Request, res: Response) => {
             });
         }
 
-        // Verificar se localidade existe
         const localidadeExiste = await queryOne<any>(
             'SELECT * FROM localidades WHERE id = ?',
             [localidade_id]
@@ -227,20 +366,11 @@ export const criar = async (req: Request, res: Response) => {
             });
         }
 
-        // Calcular data_revisao (40 dias após data_tratamento)
-        let data_revisao = null;
-        if (data_tratamento) {
-            const data = new Date(data_tratamento);
-            data.setDate(data.getDate() + 40);
-            data_revisao = data.toISOString().split('T')[0];
-        }
-
-        // Inserir
         const result = await execute(
-            `INSERT INTO rede_basica 
-             (ano, nome, psf_id, localidade_id, quarteirao, numero_imovel, 
-              entrega_documento, entrega_medicamento, data_tratamento, data_revisao, 
-              revisao, telefone, observacao) 
+            `INSERT INTO rede_basica
+             (ano, nome, psf_id, localidade_id, quarteirao, numero_imovel,
+              entrega_documento, entrega_medicamento, data_tratamento, data_revisao,
+              revisao, telefone, observacao)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 ano,
@@ -252,18 +382,17 @@ export const criar = async (req: Request, res: Response) => {
                 entrega_documento || 'N',
                 entrega_medicamento || 'N',
                 data_tratamento || null,
-                data_revisao,
-                revisao || 'N',
+                data_revisao || null,          // ⚠️ Manual
+                revisaoSincronizada,            // ⚠️ Sincronizado
                 telefone || null,
                 observacao || null
             ]
         );
 
-        // Buscar o paciente criado
         const novoPaciente = await queryOne<any>(
-            `SELECT r.*, 
-                    l.nome as localidade_nome, 
-                    p.nome as psf_nome 
+            `SELECT r.*,
+                    l.nome as localidade_nome,
+                    p.nome as psf_nome
              FROM rede_basica r
              LEFT JOIN localidades l ON r.localidade_id = l.id
              LEFT JOIN psf p ON r.psf_id = p.id
@@ -274,7 +403,7 @@ export const criar = async (req: Request, res: Response) => {
         return res.status(201).json({
             success: true,
             message: 'Paciente cadastrado com sucesso',
-            data: novoPaciente
+            data: enriquecerRegistro(novoPaciente)
         });
     } catch (error) {
         console.error('Erro ao criar paciente:', error);
@@ -302,12 +431,12 @@ export const atualizar = async (req: Request, res: Response) => {
             entrega_documento,
             entrega_medicamento,
             data_tratamento,
+            data_revisao,
             revisao,
             telefone,
             observacao
         } = req.body;
 
-        // Verificar se existe
         const existe = await queryOne<any>(
             'SELECT * FROM rede_basica WHERE id = ?',
             [id]
@@ -320,13 +449,10 @@ export const atualizar = async (req: Request, res: Response) => {
             });
         }
 
-        // ============================================
-        // VALIDAR REGRAS DE NEGÓCIO (com dados atuais)
-        // ============================================
-
         const dadosAtuais = {
             revisao: revisao !== undefined ? revisao : existe.revisao,
             data_tratamento: data_tratamento !== undefined ? data_tratamento : existe.data_tratamento,
+            data_revisao: data_revisao !== undefined ? data_revisao : existe.data_revisao,
             entrega_medicamento: entrega_medicamento !== undefined ? entrega_medicamento : existe.entrega_medicamento,
             entrega_documento: entrega_documento !== undefined ? entrega_documento : existe.entrega_documento
         };
@@ -340,7 +466,6 @@ export const atualizar = async (req: Request, res: Response) => {
             });
         }
 
-        // Verificar se PSF existe
         if (psf_id) {
             const psfExiste = await queryOne<any>(
                 'SELECT * FROM psf WHERE id = ?',
@@ -355,7 +480,6 @@ export const atualizar = async (req: Request, res: Response) => {
             }
         }
 
-        // Verificar se localidade existe
         if (localidade_id) {
             const localidadeExiste = await queryOne<any>(
                 'SELECT * FROM localidades WHERE id = ?',
@@ -370,17 +494,14 @@ export const atualizar = async (req: Request, res: Response) => {
             }
         }
 
-        // Calcular data_revisao (40 dias após data_tratamento)
-        let data_revisao = null;
-        if (data_tratamento) {
-            const data = new Date(data_tratamento);
-            data.setDate(data.getDate() + 40);
-            data_revisao = data.toISOString().split('T')[0];
-        }
+        const dataRevisaoFinal = data_revisao !== undefined
+            ? data_revisao
+            : existe.data_revisao;
 
-        // Atualizar
+        const revisaoSincronizada = sincronizarRevisao(dataRevisaoFinal);
+
         await execute(
-            `UPDATE rede_basica SET 
+            `UPDATE rede_basica SET
                 ano = ?,
                 nome = ?,
                 psf_id = ?,
@@ -405,19 +526,18 @@ export const atualizar = async (req: Request, res: Response) => {
                 entrega_documento || existe.entrega_documento,
                 entrega_medicamento || existe.entrega_medicamento,
                 data_tratamento || existe.data_tratamento,
-                data_revisao || existe.data_revisao,
-                revisao || existe.revisao,
+                dataRevisaoFinal,                // ⚠️ Manual
+                revisaoSincronizada,             // ⚠️ Sincronizado
                 telefone !== undefined ? telefone : existe.telefone,
                 observacao !== undefined ? observacao : existe.observacao,
                 id
             ]
         );
 
-        // Buscar o paciente atualizado
         const pacienteAtualizado = await queryOne<any>(
-            `SELECT r.*, 
-                    l.nome as localidade_nome, 
-                    p.nome as psf_nome 
+            `SELECT r.*,
+                    l.nome as localidade_nome,
+                    p.nome as psf_nome
              FROM rede_basica r
              LEFT JOIN localidades l ON r.localidade_id = l.id
              LEFT JOIN psf p ON r.psf_id = p.id
@@ -428,7 +548,7 @@ export const atualizar = async (req: Request, res: Response) => {
         return res.status(200).json({
             success: true,
             message: 'Paciente atualizado com sucesso',
-            data: pacienteAtualizado
+            data: enriquecerRegistro(pacienteAtualizado)
         });
     } catch (error) {
         console.error('Erro ao atualizar paciente:', error);
@@ -447,7 +567,6 @@ export const deletar = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        // Verificar se existe
         const existe = await queryOne<any>(
             'SELECT * FROM rede_basica WHERE id = ?',
             [id]
@@ -460,7 +579,6 @@ export const deletar = async (req: Request, res: Response) => {
             });
         }
 
-        // Deletar
         await execute(
             'DELETE FROM rede_basica WHERE id = ?',
             [id]
