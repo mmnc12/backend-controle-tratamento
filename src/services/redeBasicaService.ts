@@ -2,12 +2,82 @@
 
 import pool from '../config/database';
 
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
+
+/**
+ * Calcula o status da revisão:
+ * - 'feita'     → tem data_revisao preenchida
+ * - 'pendente'  → passou dos 40 dias sem data_revisao
+ * - 'no_prazo'  → dentro dos 40 dias sem data_revisao
+ * - null        → não tem data_tratamento
+ */
+const calcularStatusRevisao = (
+  dataTratamento: string | Date | null | undefined,
+  dataRevisao: string | Date | null | undefined
+): 'feita' | 'pendente' | 'no_prazo' | null => {
+  if (dataRevisao) {
+    return 'feita';
+  }
+
+  if (!dataTratamento) {
+    return null;
+  }
+
+  const dataTrat = new Date(dataTratamento);
+  const dataLimite = new Date(dataTrat);
+  dataLimite.setDate(dataLimite.getDate() + 40);
+  dataLimite.setHours(0, 0, 0, 0);
+
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  if (hoje > dataLimite) {
+    return 'pendente';
+  }
+
+  return 'no_prazo';
+};
+
+/**
+ * Enriquece um registro com campos calculados:
+ * - tratado: true/false
+ * - status_revisao: 'feita' | 'pendente' | 'no_prazo' | null
+ */
+const enriquecerRegistro = (registro: any): any => {
+  if (!registro) return registro;
+
+  const tratado = Boolean(registro.data_tratamento);
+  const status_revisao = calcularStatusRevisao(
+    registro.data_tratamento,
+    registro.data_revisao
+  );
+
+  return {
+    ...registro,
+    tratado,
+    status_revisao
+  };
+};
+
+/**
+ * Sincroniza `revisao` com base em `data_revisao`.
+ */
+const sincronizarRevisao = (dataRevisao: string | Date | null | undefined): 'S' | 'N' => {
+  return dataRevisao ? 'S' : 'N';
+};
+
+// ============================================
+// SERVICE
+// ============================================
+
 export const redeBasicaService = {
   listar: async (filtros: any): Promise<any[]> => {
     let query = `
-      SELECT rb.*, 
-             p.nome as psf_nome, 
-             l.nome as localidade_nome 
+      SELECT rb.*,
+             p.nome as psf_nome,
+             l.nome as localidade_nome
       FROM rede_basica rb
       LEFT JOIN psf p ON rb.psf_id = p.id
       LEFT JOIN localidades l ON rb.localidade_id = l.id
@@ -31,33 +101,63 @@ export const redeBasicaService = {
       query += ' AND rb.nome LIKE ?';
       values.push(`%${filtros.nome}%`);
     }
+    if (filtros.tratado) {
+      if (filtros.tratado === 'S') {
+        query += ' AND rb.data_tratamento IS NOT NULL';
+      } else {
+        query += ' AND rb.data_tratamento IS NULL';
+      }
+    }
+    if (filtros.revisao) {
+      query += ' AND rb.revisao = ?';
+      values.push(filtros.revisao);
+    }
 
     query += ' ORDER BY rb.id DESC';
 
     const [rows] = await pool.execute(query, values);
-    return rows as any[];
+
+    // ⚠️ Enriquecer cada registro
+    return (rows as any[]).map(enriquecerRegistro);
   },
 
   buscarPorId: async (id: number): Promise<any | null> => {
     const [rows] = await pool.execute(`
-      SELECT rb.*, 
-             p.nome as psf_nome, 
-             l.nome as localidade_nome 
+      SELECT rb.*,
+             p.nome as psf_nome,
+             l.nome as localidade_nome
       FROM rede_basica rb
       LEFT JOIN psf p ON rb.psf_id = p.id
       LEFT JOIN localidades l ON rb.localidade_id = l.id
       WHERE rb.id = ?
     `, [id]);
-    return (rows as any[])[0] || null;
+
+    const registro = (rows as any[])[0];
+    if (!registro) return null;
+
+    // ⚠️ Enriquecer
+    return enriquecerRegistro(registro);
   },
 
   criar: async (data: any): Promise<any> => {
-    const [result] = await pool.execute('INSERT INTO rede_basica SET ?', [data]);
+    // ⚠️ Sincronizar revisao
+    const dadosTratados = { ...data };
+    if (Object.prototype.hasOwnProperty.call(dadosTratados, 'data_revisao')) {
+      dadosTratados.revisao = sincronizarRevisao(dadosTratados.data_revisao);
+    }
+
+    const [result] = await pool.execute('INSERT INTO rede_basica SET ?', [dadosTratados]);
     return result;
   },
 
   atualizar: async (id: number, data: any): Promise<any> => {
-    const [result] = await pool.execute('UPDATE rede_basica SET ? WHERE id = ?', [data, id]);
+    // ⚠️ Sincronizar revisao
+    const dadosTratados = { ...data };
+    if (Object.prototype.hasOwnProperty.call(dadosTratados, 'data_revisao')) {
+      dadosTratados.revisao = sincronizarRevisao(dadosTratados.data_revisao);
+    }
+
+    const [result] = await pool.execute('UPDATE rede_basica SET ? WHERE id = ?', [dadosTratados, id]);
     return result;
   },
 
